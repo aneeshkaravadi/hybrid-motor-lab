@@ -1,105 +1,88 @@
 # hybrid-motor-lab
 
-**Solid, hybrid and detonation rocket propulsion models in Python: real thermochemistry, arbitrary (3D-printable) grain shapes, O/F control, and a printable nozzle as CAD.**
-
 [![tests](https://github.com/aneeshkaravadi/hybrid-motor-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/aneeshkaravadi/hybrid-motor-lab/actions/workflows/ci.yml)
 
-![Hybrid O/F drift for four port shapes](docs/figures/hybrid_of_drift.png)
+Rocket motor models in Python, from the combustion chemistry all the way to a nozzle you can 3D print. It covers solid motors, hybrids, and a detour into rotating detonation engines.
 
-## What this shows
+<!-- TODO(Aneesh): photo of the club rocket / motor here, e.g.
+![Our L1 rocket on the pad](docs/photos/rocket_on_pad.jpg)
+-->
 
-| Result | Number | How it was checked |
-|---|---|---|
-| Combustion temperature (H₂/O₂, CH₄/air, CH₄/O₂, 1 atm) | 3077 / 2225 / 3052 K | textbook 3080 / 2226 / 3050 K |
-| Chapman–Jouguet detonation speed (H₂/O₂, H₂/air, C₂H₄/air) | 2837 / 1969 / 1824 m/s | published 2836 / 1968 / 1825 m/s |
-| Burn-back perimeter of a circular port | within 0.1% mid-burn | exact $2\pi(r_0+x)$ |
-| BATES burning area | within 1% | closed form |
-| Solid-motor mass balance | within 3% | propellant loaded vs mass expelled |
-| Bell nozzle | ε = 8.000, metal-PBF printable | DfAM check on the exported STL |
+## Why I built this
 
-All 18 checks run in CI (`tests/test_physics.py`).
+I led propulsion design for my high school's rocketry club, and for most of that time a motor was a thrust curve on a website that I picked from and trusted. I wanted to be able to compute that curve myself, starting from the grain shape and the propellant. Once the solid-motor part worked, hybrids were the obvious next step, because a 3D-printed fuel grain can have any port shape you want. I got into detonation engines after reading about companies flying them and wanting to understand why anyone would bother.
 
-### Finding 1: for a paraffin hybrid, port shape cannot hold O/F steady, but throttling or a graded printed fuel can
+## What's in it
 
-The fuel regresses at $\dot r = aG^n$. For any port that grows self-similarly, $O/F \propto A^{\,n-1/2}$, so with paraffin's $n = 0.62$, O/F must rise during the burn ([derivation](DERIVATIONS.md#5-hybrid-motor-of-drift-and-how-to-stop-it-hybridpy)).
+- `thermo.py`: equilibrium combustion and nozzle expansion with [Cantera](https://cantera.org), basically the NASA CEA "rocket" problem
+- `grain.py`: burn-back for any port shape you can describe (tube, star, finocyl, wagon wheel, or your own function)
+- `solid.py` and `hybrid.py`: quasi-steady ballistics, including fuel regression $\dot r = aG^n$ for hybrids
+- `rde.py`: Chapman–Jouguet detonation states, ideal cycle comparison, and rough RDE sizing
+- `nozzle.py`: a Rao-style bell contour that exports straight to STEP
 
-Stars, finocyls and wagon wheels all front-load fuel flow. That gives 3–5% more total impulse than a tube, but O/F swings 70–88% over the burn instead of 21%.
+The math behind all of it is written out in [DERIVATIONS.md](DERIVATIONS.md).
 
-A 20-design star sweep confirms that **none** beats the plain tube on O/F drift:
+## The result I didn't expect
 
-![Star sweep](docs/figures/star_sweep.png)
+I assumed printed port shapes would let you hold a hybrid's O/F ratio steady through the burn, since that was the whole appeal. They don't, at least not for paraffin. Every star, finocyl and wagon wheel I tried front-loaded the fuel flow, which helped thrust a little (3 to 5% more impulse), but made the O/F swing much worse than a plain tube (70 to 88% instead of 21%).
 
-What does work is inverting the model. To hold O/F at 2.49 the motor needs either:
-- an oxidizer throttle schedule from 0.73 to 0.41 kg/s, or
-- a fuel whose regression coefficient rises from 0.87× to 1.07× from the port outward. That is a radially graded grain, which only additive manufacturing can make.
+![O/F drift for four port shapes](docs/figures/hybrid_of_drift.png)
+
+It took me a while to see why. For any port that grows into a scaled copy of itself, O/F goes like $A^{n-1/2}$, and paraffin has $n = 0.62$, so O/F has to rise no matter what shape you start with. I ran a sweep of 20 star designs to be sure and none of them beat the tube.
+
+What does work is running the model backwards. To hold O/F flat you either throttle the oxidizer down over the burn (0.73 to 0.41 kg/s for my test case), or you print a fuel whose regression rate increases by about 24% from the port outward. That second one is a fuel grain you could only make by printing it.
 
 ![O/F remedies](docs/figures/of_remedies.png)
 
-### Finding 2: detonation does work even with no compressor
+## Detonation, briefly
 
-The detonation speed comes from full equilibrium chemistry. A one-gamma model calibrated to that speed then compares three ideal cycles on H₂/air:
-- **Fickett–Jacobs** (detonation): 25% thermal efficiency at a pressure ratio of 1
-- **Humphrey** (constant-volume combustion): 23%
-- **Brayton** (conventional constant-pressure combustion): 0%
+The detonation speeds from my CJ solver land within 1 m/s of published values for H₂/O₂, H₂/air and C₂H₄/air, which was the moment I started trusting it. The interesting part is the cycle comparison. For H₂/air with no compressor at all, an ideal detonation cycle still gets about 25% thermal efficiency while a normal constant-pressure (Brayton) cycle gets zero, because the detonation does its own compression. That's the argument for RDEs in one plot.
 
-The detonation's own pressure rise does the compressor's job. This is the case for rotating detonation engines.
+<img src="docs/figures/cycle_efficiency.png" width="60%">
 
-<img src="docs/figures/cycle_efficiency.png" width="49%"> <img src="docs/figures/rde_sizing.png" width="49%">
+The sizing part depends on the detonation cell size, which you can't really calculate and have to get from experiments, so I sweep it instead of pretending to know it.
 
-RDE sizing uses Bykovskii's empirical correlations, which depend on the detonation cell size λ. λ has to come from experiments, so the plot sweeps it rather than inventing a value. The code also flags annuli that are too small for the chosen mixture.
+## Solid motors
 
-### Finding 3: same motor case, four thrust profiles
+Same 54 mm case, four grain designs, four very different thrust curves. The propellant numbers here are illustrative, not a real formulation.
 
 ![Solid thrust shaping](docs/figures/solid_thrust_shaping.png)
 
-These are four grain designs in the same 54 mm case: neutral BATES, a progressive tube, a fast star with a sliver tail-off, and a boost–sustain stack. The propellant constants are illustrative, not a real formulation. `examples/compare_static_fire.py` fits the burn-rate law to a measured curve (load-cell CSV, or RASP `.eng` files from thrustcurve.org).
+<!-- TODO(Aneesh): once you have real data, add a section here, e.g.
+## Checking it against real motors
+Fit a and n on one motor with examples/compare_static_fire.py, then predict a second motor of the same propellant
+(thrustcurve.org .eng file or club static-fire CSV in data/static_fires/). Show the overlay plot and the impulse error.
+-->
 
-### A nozzle you can print
+## A nozzle that ends in hardware
 
-`hml.nozzle` turns the contour into a solid with [build123d](https://github.com/gumyr/build123d) and writes [`cad/bell_nozzle_e8.step`](cad/bell_nozzle_e8.step). The [DfAM report](docs/dfam_report.md) measures the exported mesh against metal laser powder-bed fusion limits:
-- it is watertight
-- its thinnest wall is 2.6 mm against a 0.4–0.5 mm minimum
-- printed exit-up, only 2.5% of its surface needs support
+`nozzle.py` builds the bell contour and exports it with build123d as [`cad/bell_nozzle_e8.step`](cad/bell_nozzle_e8.step). I ran the exported mesh through a DfAM check for metal powder-bed printing ([report](docs/dfam_report.md)). Walls pass easily, and standing it on its flange cuts the support area from 18% to 2.5%.
 
-<img src="docs/figures/nozzle_contour.png" width="70%">
+<!-- TODO(Aneesh): screenshot of the STEP open in SolidWorks/Fusion, e.g.
+<img src="docs/photos/nozzle_in_solidworks.png" width="60%">
+-->
 
-## Quick start
+## Things I got wrong along the way
+
+- My first burn-back version used a plain pixel distance transform, and it overestimated the burning perimeter by about 10% early in the burn, because the flame front ends up being a bunch of tiny circles around boundary pixels. I switched to finding the boundary at sub-pixel accuracy and measuring distances to that, which got it to within 0.1% of the exact circle.
+- The first nozzle STEP file was in metres while CAD programs assume millimetres, so it opened 1000 times too small, and the STL was 78 MB. Building the geometry in mm with spline walls fixed both (the STEP is now 69 KB).
+- I labelled one of my solid grain cases "near-neutral star" before actually looking at the curve. It isn't neutral at all, so it's now labelled for what it does.
+- The exit-pressure solver crashed with a negative temperature because I let it search down to absurdly low pressures, so the bracket now scales with the area ratio.
+
+## Running it
 
 ```bash
-git clone https://github.com/aneeshkaravadi/hybrid-motor-lab && cd hybrid-motor-lab
 pip install -e ".[dev,cad]"
-pytest -q                          # 18 physics checks, ~5 s
-python examples/make_figures.py    # every figure and number above, ~30 s
+pytest -q                          # 18 checks against known answers, a few seconds
+python examples/make_figures.py    # regenerates every figure and number above
 ```
 
-```python
-from hml import thermo, rde
+The tests compare against things I could look up independently: textbook flame temperatures, published CJ speeds, the exact BATES burning area, isentropic flow tables, and a mass balance on the solid motor.
 
-perf = thermo.rocket(thermo.bipropellant(thermo.O2, thermo.PARAFFIN, of=2.2), pc=2e6, area_ratio=5)
-print(perf.cstar, perf.isp_vac)          # ~1815 m/s, shifting equilibrium
+## What's next
 
-cj = rde.cj_state(thermo.bipropellant(thermo.AIR, thermo.H2, of=34.06))
-print(cj.D, cj.P2 / cj.P1)               # 1969 m/s, 15.6x pressure rise
-```
+Things I want to add are tracked in [issues](https://github.com/aneeshkaravadi/hybrid-motor-lab/issues): validation against real static-fire data, erosive burning, and oxidizer tank blowdown for the hybrid model.
 
-## How it works
+---
 
-| Module | What it does |
-|---|---|
-| `thermo.py` | Adiabatic equilibrium combustion and frozen or shifting nozzle expansion (the NASA CEA "rocket" problem), solved with [Cantera](https://cantera.org) and NASA thermo data |
-| `grain.py` | Burn-back of any port shape: a sub-pixel boundary, a distance field, then $P = dA/dx$ |
-| `solid.py` | Quasi-steady solid-motor ballistics, $P_c = (\rho_p a A_b c^*/A_t)^{1/(1-n)}$ |
-| `hybrid.py` | Hybrid ballistics with $\dot r = aG^n$, plus the inverse problems (throttle schedule, graded fuel) |
-| `rde.py` | Chapman–Jouguet detonation state, one-gamma cycle efficiencies, Bykovskii RDE sizing |
-| `nozzle.py` | One-gamma $C_F$, Rao-style bell contour, STEP/STL export |
-
-Every equation is derived in [DERIVATIONS.md](DERIVATIONS.md), together with what the models leave out.
-
-> [!NOTE]
-> These are design-study models, not flight-qualification tools. The limitations are listed at the end of DERIVATIONS.md.
-
-## About
-
-Built by **Aneesh Karavadi**, an engineering student at the University of North Texas (Texas Academy of Mathematics and Science). I used **Claude Code** as a pair programmer. The physics choices, validation targets and conclusions are mine to defend, and the tests show where each one comes from.
-
-Companion notes for specific teams are in [`docs/`](docs/).
+Aneesh Karavadi, engineering at UNT (TAMS). I used Claude Code to write a lot of the implementation, but I picked the problems and the validation targets, and I checked the results, so the mistakes are mine.
