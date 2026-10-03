@@ -1,0 +1,224 @@
+{
+  "solid": {
+    "4x BATES, open ends (roughly neutral)": {
+      "impulse_Ns": 1940.6,
+      "burn_s": 3.03,
+      "max_pc_MPa": 2.36,
+      "isp_s": 210.4
+    },
+    "tubular, inhibited ends (progressive)": {
+      "impulse_Ns": 1931.1,
+      "burn_s": 3.11,
+      "max_pc_MPa": 3.66,
+      "isp_s": 209.4
+    },
+    "6-point star (fast, then sliver tail-off)": {
+      "impulse_Ns": 1791.4,
+      "burn_s": 3.08,
+      "max_pc_MPa": 4.16,
+      "isp_s": 215.9
+    },
+    "finocyl boost + tubular sustain": {
+      "impulse_Ns": 1806.0,
+      "burn_s": 4.04,
+      "max_pc_MPa": 3.13,
+      "isp_s": 205.8
+    }
+  },
+  "gox_paraffin_best_of_2MPa": {
+    "of": 2.2,
+    "cstar": 1815.2
+  },
+  "hybrid": {
+    "tubular 35 mm": {
+      "of_start": 2.16,
+      "of_end": 2.67,
+      "of_spread": 0.208,
+      "impulse_Ns": 13141.0,
+      "isp_s": 238.5,
+      "fuel_kg": 1.61
+    },
+    "6-point star": {
+      "of_start": 1.06,
+      "of_end": 2.46,
+      "of_spread": 0.701,
+      "impulse_Ns": 13852.0,
+      "isp_s": 231.8,
+      "fuel_kg": 2.09
+    },
+    "5-fin finocyl": {
+      "of_start": 1.04,
+      "of_end": 2.56,
+      "of_spread": 0.731,
+      "impulse_Ns": 13727.0,
+      "isp_s": 232.9,
+      "fuel_kg": 2.0
+    },
+    "6-spoke wagon wheel": {
+      "of_start": 0.79,
+      "of_end": 2.62,
+      "of_spread": 0.882,
+      "impulse_Ns": 13600.0,
+      "isp_s": 225.7,
+      "fuel_kg": 2.14
+    }
+  },
+  "star_sweep_best": {
+    "points": 4,
+    "depth_mm": 6.0,
+    "of_spread": 0.359,
+    "mean_of": 2.37
+  },
+  "remedies": {
+    "target_of": 2.49,
+    "baseline_drift": 0.208,
+    "throttle_drift": 0.0,
+    "graded_drift": 0.0,
+    "throttle_range_kg_s": [
+      0.731,
+      0.414
+    ],
+    "grading_range": [
+      0.866,
+      1.074
+    ]
+  },
+  "cj": {
+    "H2-O2": {
+      "D_m_s": 2836.9,
+      "T_K": 3679,
+      "P_ratio": 18.79,
+      "literature_D": 2836
+    },
+    "H2-air": {
+      "D_m_s": 1969.3,
+      "T_K": 2945,
+      "P_ratio": 15.58,
+      "literature_D": 1968
+    },
+    "C2H4-air": {
+      "D_m_s": 1824.0,
+      "T_K": 2924,
+      "P_ratio": 18.35,
+      "literature_D": 1825
+    },
+    "CH4-O2": {
+      "D_m_s": 2390.5,
+      "T_K": 3724,
+      "P_ratio": 29.33,
+      "literature_D": null
+    }
+  },
+  "cycle_at_pi": {
+    "1": {
+      "fickett-jacobs": 25.3,
+      "humphrey": 22.7,
+      "brayton": 0.0
+    },
+    "2": {
+      "fickett-jacobs": 33.5,
+      "humphrey": 31.3,
+      "brayton": 12.6
+    },
+    "5": {
+      "fickett-jacobs": 43.1,
+      "humphrey": 41.2,
+      "brayton": 26.9
+    },
+    "10": {
+      "fickett-jacobs": 49.5,
+      "humphrey": 47.8,
+      "brayton": 36.1
+    }
+  },
+  "rde_sizing_examples": {
+    "lambda_1.0mm_D150": {
+      "cell_size_mm": 1.0,
+      "fill_height_mm": [
+        7.0,
+        12.0,
+        17.0
+      ],
+      "min_channel_width_mm": 2.4000000000000004,
+      "min_length_mm": 24.0,
+      "min_diameter_mm": 40.0,
+      "diameter_mm": 150.0,
+      "feasible": true,
+      "waves_for_diameter": [
+        3,
+        13
+      ],
+      "wave_frequency_khz": [
+        10.656519560050107,
+        46.17825142688379
+      ]
+    },
+    "lambda_2.0mm_D150": {
+      "cell_size_mm": 2.0,
+      "fill_height_mm": [
+        14.0,
+        24.0,
+        34.0
+      ],
+      "min_channel_width_mm": 4.800000000000001,
+      "min_length_mm": 48.0,
+      "min_diameter_mm": 80.0,
+      "diameter_mm": 150.0,
+      "feasible": true,
+      "waves_for_diameter": [
+        1,
+        6
+      ],
+      "wave_frequency_khz": [
+        3.552173186683369,
+        21.313039120100214
+      ]
+    },
+    "lambda_5.0mm_D150": {
+      "cell_size_mm": 5.0,
+      "fill_height_mm": [
+        35.0,
+        60.0,
+        85.0
+      ],
+      "min_channel_width_mm": 12.0,
+      "min_length_mm": 120.0,
+      "min_diameter_mm": 200.0,
+      "diameter_mm": 150.0,
+      "feasible": false,
+      "waves_for_diameter": [
+        1,
+        2
+      ],
+      "wave_frequency_khz": [
+        3.552173186683369,
+        7.104346373366738
+      ]
+    },
+    "lambda_10.0mm_D150": {
+      "cell_size_mm": 10.0,
+      "fill_height_mm": [
+        70.0,
+        120.0,
+        170.0
+      ],
+      "min_channel_width_mm": 24.0,
+      "min_length_mm": 240.0,
+      "min_diameter_mm": 400.0,
+      "diameter_mm": 150.0,
+      "feasible": false,
+      "waves_for_diameter": [
+        1,
+        1
+      ],
+      "wave_frequency_khz": [
+        3.552173186683369,
+        3.552173186683369
+      ]
+    }
+  },
+  "nozzle": {
+    "area_ratio": 8.0,
+    "length_mm": 81.9
+  }
+}

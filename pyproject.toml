@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hybrid-motor-lab"
+version = "0.1.0"
+description = "Solid, hybrid and detonation rocket propulsion models: Cantera thermochemistry, arbitrary-port burn-back, O/F control and printable nozzle CAD."
+authors = [{ name = "Aneesh Karavadi" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["numpy>=1.26", "scipy>=1.11", "matplotlib>=3.8", "cantera>=3.0", "contourpy>=1.2"]
+
+[project.optional-dependencies]
+cad = ["build123d>=0.8"]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
