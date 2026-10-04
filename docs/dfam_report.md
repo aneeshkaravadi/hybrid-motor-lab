@@ -1,6 +1,6 @@
 # DfAM report: `cad/bell_nozzle_e8.stl`
 
-Measured with the `dfam-check` tool (trimesh), comparing against the **PBF-LB metal (SLM/DMLS)** column of its process-limits table (Hubs / EOS design guides). A machine- or alloy-specific datasheet would override these defaults.
+Measured with a trimesh-based DfAM script ([dfam-check](https://github.com/earthtojake/text-to-cad), MIT), comparing against the **PBF-LB metal (SLM/DMLS)** column of its process-limits table (Hubs / EOS design guides). A machine- or alloy-specific datasheet would override these defaults.
 
 | Check | Measured | Limit (metal PBF) | Status |
 |---|---|---|---|
@@ -23,6 +23,6 @@ The 3 mm wall is a placeholder for a heat-sink test article, not a thermal desig
 Reproduce:
 
 ```bash
-python ~/.claude/skills/dfam-check/scripts/dfam_tool.py measure cad/bell_nozzle_e8.stl --angle-limit 45
-python ~/.claude/skills/dfam-check/scripts/dfam_tool.py orientations cad/bell_nozzle_e8.stl --angle-limit 45
+python dfam_tool.py measure cad/bell_nozzle_e8.stl --angle-limit 45
+python dfam_tool.py orientations cad/bell_nozzle_e8.stl --angle-limit 45
 ```

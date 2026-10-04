@@ -10,7 +10,7 @@ Rocket motor models in Python, from the combustion chemistry all the way to a no
 
 ## Why I built this
 
-I led propulsion design for my high school's rocketry club, and for most of that time a motor was a thrust curve on a website that I picked from and trusted. I wanted to be able to compute that curve myself, starting from the grain shape and the propellant. Once the solid-motor part worked, hybrids were the obvious next step, because a 3D-printed fuel grain can have any port shape you want. I got into detonation engines after reading about companies flying them and wanting to understand why anyone would bother.
+I led propulsion design for my high school's rocketry club, where we built and launched high-power rockets, and I wanted to be able to compute a motor's thrust curve myself from the grain shape and the propellant instead of only reading it off a datasheet. Once the solid-motor part worked, hybrids were the obvious next step, because a 3D-printed fuel grain can have any port shape you want. The detonation part came from wanting to understand why anyone would build an engine around detonations in the first place.
 
 ## What's in it
 
