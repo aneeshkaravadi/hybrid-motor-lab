@@ -16,7 +16,7 @@ I led propulsion design for my high school's rocketry club, where we built and l
 
 - `thermo.py`: equilibrium combustion and nozzle expansion with [Cantera](https://cantera.org), basically the NASA CEA "rocket" problem
 - `grain.py`: burn-back for any port shape you can describe (tube, star, finocyl, wagon wheel, or your own function)
-- `solid.py` and `hybrid.py`: quasi-steady ballistics, including fuel regression $\dot r = aG^n$ for hybrids, either averaged over the port or marched along it
+- `solid.py` and `hybrid.py`: quasi-steady ballistics, with erosive burning for solids and fuel regression $\dot r = aG^n$ for hybrids, either averaged over the port or marched along it
 - `tank.py`: a self-pressurizing nitrous oxide tank and injector feeding the hybrid, with [CoolProp](http://coolprop.org) for the nitrous properties
 - `rde.py`: Chapman–Jouguet detonation states, ideal cycle comparison, and rough RDE sizing
 - `nozzle.py`: a Rao-style bell contour that exports straight to STEP
@@ -71,6 +71,14 @@ Same 54 mm case, four grain designs, four very different thrust curves. The prop
 
 ![Solid thrust shaping](docs/figures/solid_thrust_shaping.png)
 
+### Erosive burning
+
+My first solid model let the burn rate depend only on chamber pressure. But in a long, narrow grain, all the gas made upstream rushes along the port, and that scours the burning surface and makes it burn faster, most of all near the nozzle. I added it with Mukunda and Paul's correlation (Combustion and Flame, 1997), which they fit to about 450 data points from many propellants. Beyond the usual burn-rate numbers it only needs the gas viscosity. Each grain is split into slices along its length. Every step solves for the chamber pressure where the gas from all the slices, each burning at its own rate, matches what the nozzle lets out. With erosion turned off it reproduces the pressure-only model exactly.
+
+My 4-grain BATES example has a 20 mm core and a 17 mm throat, so the port is only 1.4 times the throat area. At ignition the last grain burns up to 50% faster than pressure alone predicts, and the starting pressure is 14% higher (2.47 MPa instead of 2.17). The erosion fades within a second as the ports open up, but by then the nozzle-end grains are ahead, so they burn out first and the tail-off starts earlier. Sweeping the core size shows where the usual rule of thumb, a port at least twice the throat area, comes from. At a ratio of 2 the spike at ignition is down to 7%, and at 3 it's about 1%.
+
+![Erosive burning](docs/figures/erosive_burning.png)
+
 <!-- TODO(Aneesh): once you have real data, add a section here, e.g.
 ## Checking it against real motors
 Fit a and n on one motor with examples/compare_static_fire.py, then predict a second motor of the same propellant
@@ -90,21 +98,22 @@ Fit a and n on one motor with examples/compare_static_fire.py, then predict a se
 - My first burn-back version used a plain pixel distance transform, and it overestimated the burning perimeter by about 10% early in the burn, because the flame front ends up being a bunch of tiny circles around boundary pixels. I switched to finding the boundary at sub-pixel accuracy and measuring distances to that, which got it to within 0.1% of the exact circle.
 - The first nozzle STEP file was in meters while CAD programs assume millimeters, so it opened 1000 times too small, and the STL was 78 MB. Building the geometry in mm with spline walls fixed both (the STEP is now 69 KB).
 - I labeled one of my solid grain cases "near-neutral star" before actually looking at the curve. It isn't neutral at all, so it's now labeled for what it does.
+- My finocyl-plus-sustainer example had the sustainer grain, with its 10 mm core, at the nozzle end. The pressure-only model doesn't care about the order of the grains, but in that order all the boost grain's gas would have to squeeze through a port smaller than the nozzle throat, at more than twice the flux the throat itself can pass, so the port would choke. The erosive model flags that. With the sustainer at the head end it only carries its own gas, and the thrust curve in the plot doesn't change.
 - The exit-pressure solver crashed with a negative temperature because I let it search down to absurdly low pressures, so the bracket now scales with the area ratio.
 
 ## Running it
 
 ```bash
 pip install -e ".[dev,cad]"
-pytest -q                          # 26 checks against known answers, a few seconds
+pytest -q                          # 31 checks against known answers, a few seconds
 python examples/make_figures.py    # regenerates every figure and number above
 ```
 
-The tests compare against things I could look up independently: textbook flame temperatures, published CJ speeds, the exact BATES burning area, isentropic flow tables, a mass balance on the solid motor, an ODE solve of the fuel flow along a hybrid port, and a second, independent formulation of the nitrous tank drain.
+The tests compare against things I could look up independently: textbook flame temperatures, published CJ speeds, the exact BATES burning area, isentropic flow tables, a published erosive-burning correlation, a mass balance on the solid motor, an ODE solve of the fuel flow along a hybrid port, and a second, independent formulation of the nitrous tank drain.
 
 ## What's next
 
-Things I want to add are tracked in [issues](https://github.com/aneeshkaravadi/hybrid-motor-lab/issues): validation against real static-fire data, erosive burning, and condensed products for aluminized propellants.
+Things I want to add are tracked in [issues](https://github.com/aneeshkaravadi/hybrid-motor-lab/issues): validation against real static-fire data, and condensed products for aluminized propellants.
 
 ---
 

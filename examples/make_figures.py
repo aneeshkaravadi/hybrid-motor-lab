@@ -61,8 +61,11 @@ cases = {
     "4x BATES, open ends (roughly neutral)": [grain.Segment(grain.tubular(0.054, 0.020), 0.07) for _ in range(4)],
     "tubular, inhibited ends (progressive)": [grain.Segment(grain.tubular(0.054, 0.020), 0.28, True)],
     "6-point star (fast, then sliver tail-off)": [grain.Segment(grain.star(0.054, 6, 0.019, 0.009), 0.28, True)],
-    "finocyl boost + tubular sustain": [grain.Segment(grain.finocyl(0.054, 0.030, 6, 0.008, 0.003), 0.12, True),
-                                        grain.Segment(grain.tubular(0.054, 0.010), 0.16, True)],
+    # The narrow sustainer goes at the head end so it only carries its own gas. At the
+    # nozzle end, all the boost grain's gas would have to squeeze through a port smaller
+    # than the throat (see the erosive burning section below).
+    "finocyl boost + tubular sustain": [grain.Segment(grain.tubular(0.054, 0.010), 0.16, True),
+                                        grain.Segment(grain.finocyl(0.054, 0.030, 6, 0.008, 0.003), 0.12, True)],
 }
 fig, ax = plt.subplots(figsize=(7.5, 4.2))
 results["solid"] = {}
@@ -76,6 +79,54 @@ ax.set_ylabel("thrust (N)")
 ax.set_title("Same 54 mm motor case, four grain designs (example APCP)")
 ax.legend(fontsize=8)
 save(fig, "solid_thrust_shaping.png")
+
+# Erosive burning: fast gas along the port makes the propellant burn faster, most at the nozzle end.
+bates = cases["4x BATES, open ends (roughly neutral)"]
+plain = solid.simulate(bates, prop, 0.017, 6.0)
+ero = solid.simulate_erosive(bates, prop, 0.017, 6.0)
+fig, axes = plt.subplots(1, 3, figsize=(13, 3.8))
+axes[0].plot(plain.t, plain.pc / 1e6, label="burn rate from pressure only")
+axes[0].plot(ero.t, ero.pc / 1e6, label="with erosive burning")
+axes[0].set_xlabel("time (s)")
+axes[0].set_ylabel("chamber pressure (MPa)")
+axes[0].set_title("4x BATES, 20 mm core, 17 mm throat")
+axes[0].legend(fontsize=8)
+for k, ts in enumerate((0.0, 0.5, 1.0)):
+    i = int(np.searchsorted(ero.t, ts))
+    rate = np.diff(ero.web_z[i:i + 2], axis=0)[0] / np.diff(ero.t[i:i + 2])[0]
+    axes[1].plot(ero.z * 100, rate / (prop.a * ero.pc[i] ** prop.n), ".", ms=3, color=f"C{k}", label=f"t = {ts:.1f} s")
+axes[1].set_xlabel("distance from the head end (cm)")
+axes[1].set_ylabel("burn rate / pressure-only rate")
+axes[1].set_title("only the grains near the nozzle erode")
+axes[1].legend(fontsize=8)
+sweep_ero = []
+for dc in (0.018, 0.020, 0.022, 0.024, 0.026, 0.028, 0.030):
+    segs = [grain.Segment(grain.tubular(0.054, dc), 0.07) for _ in range(4)]
+    a, b = solid.simulate(segs, prop, 0.017, 6.0), solid.simulate_erosive(segs, prop, 0.017, 6.0)
+    sweep_ero.append(((dc / 0.017) ** 2, 100 * (b.pc[0] / a.pc[0] - 1), 100 * (b.max_pressure / a.max_pressure - 1)))
+sweep_ero = np.array(sweep_ero)
+axes[2].plot(sweep_ero[:, 0], sweep_ero[:, 1], "o-", label="pressure at ignition")
+axes[2].plot(sweep_ero[:, 0], sweep_ero[:, 2], "s-", label="peak pressure")
+axes[2].set_xlabel("port-to-throat area ratio (core diameter 18-30 mm)")
+axes[2].set_ylabel("rise from erosive burning (%)")
+axes[2].set_title("why ports should be 2x the throat")
+axes[2].legend(fontsize=8)
+fig.suptitle("Erosive burning (Mukunda & Paul's correlation): gas from upstream scours the grains near the nozzle")
+save(fig, "erosive_burning.png")
+boost_first = [cases["finocyl boost + tubular sustain"][1], cases["finocyl boost + tubular sustain"][0]]
+choked = solid.simulate_erosive(boost_first, prop, 0.015, 6.0)
+results["erosive"] = {
+    "bates_p0_MPa": [round(float(plain.pc[0]) / 1e6, 2), round(float(ero.pc[0]) / 1e6, 2)],
+    "bates_pmax_MPa": [round(plain.max_pressure / 1e6, 2), round(ero.max_pressure / 1e6, 2)],
+    "bates_peak_rate_ratio": round(float(ero.peak_ratio[0]), 2),
+    "bates_port_flux_over_throat": round(float(ero.port_choke_ratio.max()), 2),
+    "sweep_port_to_throat": [round(v, 2) for v in sweep_ero[:, 0]],
+    "sweep_p0_rise_pct": [round(v, 1) for v in sweep_ero[:, 1]],
+    "sweep_pmax_rise_pct": [round(v, 1) for v in sweep_ero[:, 2]],
+    "boost_first_port_flux_over_throat": round(float(choked.port_choke_ratio[0]), 2),
+    "boost_first_peak_port_flux": round(float(choked.peak_flux[0])),
+    "throat_flux_at_ignition": round(float(choked.pc[0]) / prop.cstar),
+}
 
 # ------------------------------------------------------------------ 3. hybrid thermochemistry + O/F drift
 of_grid = np.linspace(1.0, 4.0, 16)

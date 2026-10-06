@@ -25,6 +25,48 @@
       "isp_s": 205.8
     }
   },
+  "erosive": {
+    "bates_p0_MPa": [
+      2.17,
+      2.47
+    ],
+    "bates_pmax_MPa": [
+      2.36,
+      2.47
+    ],
+    "bates_peak_rate_ratio": 1.5,
+    "bates_port_flux_over_throat": 0.72,
+    "sweep_port_to_throat": [
+      1.12,
+      1.38,
+      1.67,
+      1.99,
+      2.34,
+      2.71,
+      3.11
+    ],
+    "sweep_p0_rise_pct": [
+      19.2,
+      13.7,
+      9.9,
+      6.8,
+      4.3,
+      2.4,
+      1.3
+    ],
+    "sweep_pmax_rise_pct": [
+      6.6,
+      4.7,
+      3.6,
+      2.4,
+      1.7,
+      1.0,
+      0.7
+    ],
+    "boost_first_port_flux_over_throat": 2.25,
+    "boost_first_peak_port_flux": 6098,
+    "throat_flux_at_ignition": 2708
+  },
   "gox_paraffin_best_of_2MPa": {
     "of": 2.2,
     "cstar": 1815.2

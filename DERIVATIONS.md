@@ -90,6 +90,22 @@ The simulation steps in web distance (not time) and converts with $dt = dx / \do
 
 **Check:** integrated $\dot m\,dt$ equals the propellant mass loaded, within 3% (`test_solid_mass_balance`).
 
+### Erosive burning (`solid.simulate_erosive`)
+
+Gas flowing fast along the port raises the heat transfer to the burning surface, so the propellant burns faster than $aP_c^n$. Mukunda & Paul (Combustion and Flame 109, 1997) showed that one curve fits the data for most composite and double-base propellants when written in terms of
+
+$$g_0 = \frac{G}{\rho_p r_0}, \qquad Re_0 = \frac{\rho_p r_0 d}{\mu}, \qquad g = g_0 \left(\frac{Re_0}{1000}\right)^{-0.125}$$
+
+where $r_0 = aP_c^n$ is the pressure-only rate, $G$ the mass flux in the port, $d$ the port's hydraulic diameter $4A/P$, and $\mu$ the gas viscosity. $g_0$ compares the flow along the surface with the flow leaving it. Their Eq. 12 is
+
+$$\frac{r}{r_0} = 1 + 0.023\left(g^{0.8} - g_{th}^{0.8}\right) \quad \text{for } g > g_{th} = 35, \qquad \text{else } 1$$
+
+**Solving it.** Each segment is split into axial cells, each with its own web, port area $A_j$ and perimeter $P_j$ from the burn-back curves. For a trial $P_c$, march from the closed head end. The flow arriving at cell $j$ is everything made upstream, so $G_j = \dot m_{j-1}/A_j$. That sets $r_j = r_0\,\eta(g_j)$, and the cell adds $\rho_p r_j P_j \Delta z$ to the flow. End faces add gas where they sit and burn at $r_0$, since the flow passes them rather than along them. A root solve finds the $P_c$ where the total equals $P_c A_t/c^*$. Each cell then burns back by $r_j\,\Delta t$, with $\Delta t$ set so the fastest cell moves 0.1 mm.
+
+**When the port chokes.** The most mass flux any section can pass is about what the throat passes, $P_c/c^*$, since it's the same gas from the same chamber. If the march asks for more than that somewhere in the port, the port itself chokes, the pressure along the port is far from uniform, and a 0-D chamber model doesn't apply. The result reports that ratio (`port_choke_ratio`).
+
+**Checks:** the correlation by hand. With erosion off, the cell model reproduces the closed form exactly for BATES (whose cells burn away from the ends) and star grains. With erosion on, mass still balances within 3%, the head-end grain of a BATES stack doesn't erode while the nozzle-end one burns faster toward the nozzle, and a port narrower than the throat gets flagged (`tests/test_physics.py`).
+
 ---
 
 ## 5. Hybrid motor O/F drift and how to stop it (`hybrid.py`)
@@ -252,7 +268,7 @@ The Bézier control point $Q$ is where the tangent lines at $N$ (slope $\tan\the
 
 ## What the models leave out (say this before someone else does)
 
-- **Ballistics:** erosive burning, ignition and tail-off transients, two-phase flow losses, nozzle erosion, and heat loss to the walls.
+- **Ballistics:** ignition and tail-off transients, two-phase flow losses, nozzle erosion, and heat loss to the walls. Erosive burning is an empirical correlation with an estimated gas viscosity. End faces burn at the pressure-only rate, and the pressure is taken as uniform along the port, which holds unless the port nears choking (flagged).
 - **Hybrids:** `simulate_axial` resolves the flux along the port, but its total-flux coefficient is matched to the averaged law at ignition rather than fit to data. The nitrous tank is adiabatic and always in equilibrium. Real tanks lag behind equilibrium, and the walls give heat back to the cooling liquid. The burn also stops when the liquid runs out instead of burning the vapor left behind.
 - **Thermochemistry:** gas-phase only (no condensed products such as Al₂O₃ or soot). The paraffin heat of formation is uncertain, but a test shows it moves c* by less than 1%.
 - **Detonation:** the one-gamma cycle analysis is an idealization. Real RDEs run 10–20% below CJ speed, and the sizing depends on an empirical cell size.
