@@ -6,7 +6,7 @@ Every equation the code uses, derived from the conservation laws, with a pointer
 
 ## 1. Combustion chamber: adiabatic equilibrium (`thermo.equilibrate_hp`)
 
-The chamber is modelled as constant pressure with no heat loss, so the products have the same total enthalpy as the reactants:
+The chamber is modeled as constant pressure with no heat loss, so the products have the same total enthalpy as the reactants:
 
 $$h_\text{products}(T_c, P_c) = \sum_i y_i\, h_i^\text{reactant}(298\ \text{K})$$
 

@@ -101,7 +101,7 @@ def export_nozzle_cad(contour: Contour, wall: float, step_path: str, stl_path: s
                       flange_radius: float | None = None, flange_thickness: float = 0.0):
     """Revolve the wall (inner contour offset outward by ``wall``) into a solid; write STEP/STL.
 
-    Inputs are in metres; the CAD is built in millimetres, the unit STEP and STL readers assume.
+    Inputs are in meters; the CAD is built in millimeters, the unit STEP and STL readers assume.
     """
     import build123d as bd
 

@@ -53,9 +53,9 @@ CH4 = Reactant("CH4", {"C": 1, "H": 4}, cantera_species="CH4")
 C2H4 = Reactant("C2H4", {"C": 2, "H": 4}, cantera_species="C2H4")
 AIR = Reactant("air", {"N": 2 * 3.76 / 4.76, "O": 2 * 1 / 4.76})  # 1 mol of 21% O2 / 79% N2, h(298 K) = 0
 
-# Paraffin wax modelled as n-C32H66. Its enthalpy of formation is uncertain
+# Paraffin wax modeled as n-C32H66. Its enthalpy of formation is uncertain
 # (typical estimates fall between about -1.9 and -2.2 MJ/kg). We use -2.0 MJ/kg;
-# tests/test_thermo.py shows c* moves well under 1% across that range.
+# tests/test_physics.py shows c* moves well under 1% across that range.
 PARAFFIN_MOLAR_MASS = (32 * 12.011 + 66 * 1.008) / 1000.0
 PARAFFIN = Reactant("paraffin", {"C": 32, "H": 66}, dhf_kj_mol=-2.0e3 * PARAFFIN_MOLAR_MASS)
 

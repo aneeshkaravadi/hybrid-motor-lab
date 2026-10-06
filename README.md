@@ -65,8 +65,8 @@ Fit a and n on one motor with examples/compare_static_fire.py, then predict a se
 ## Things I got wrong along the way
 
 - My first burn-back version used a plain pixel distance transform, and it overestimated the burning perimeter by about 10% early in the burn, because the flame front ends up being a bunch of tiny circles around boundary pixels. I switched to finding the boundary at sub-pixel accuracy and measuring distances to that, which got it to within 0.1% of the exact circle.
-- The first nozzle STEP file was in metres while CAD programs assume millimetres, so it opened 1000 times too small, and the STL was 78 MB. Building the geometry in mm with spline walls fixed both (the STEP is now 69 KB).
-- I labelled one of my solid grain cases "near-neutral star" before actually looking at the curve. It isn't neutral at all, so it's now labelled for what it does.
+- The first nozzle STEP file was in meters while CAD programs assume millimeters, so it opened 1000 times too small, and the STL was 78 MB. Building the geometry in mm with spline walls fixed both (the STEP is now 69 KB).
+- I labeled one of my solid grain cases "near-neutral star" before actually looking at the curve. It isn't neutral at all, so it's now labeled for what it does.
 - The exit-pressure solver crashed with a negative temperature because I let it search down to absurdly low pressures, so the bracket now scales with the area ratio.
 
 ## Running it
@@ -85,4 +85,4 @@ Things I want to add are tracked in [issues](https://github.com/aneeshkaravadi/h
 
 ---
 
-Aneesh Karavadi, engineering at UNT (TAMS). I used Claude Code to write a lot of the implementation, but I picked the problems and the validation targets, and I checked the results, so the mistakes are mine.
+Aneesh Karavadi, dual-enrolled engineering student at UNT through TAMS. I used Claude Code to write a lot of the implementation, but I picked the problems and the validation targets, and I checked the results, so the mistakes are mine.

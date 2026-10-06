@@ -5,9 +5,9 @@ Measured with a trimesh-based DfAM script ([dfam-check](https://github.com/earth
 | Check | Measured | Limit (metal PBF) | Status |
 |---|---|---|---|
 | Watertight, single body | yes, 1 body | required | ✅ pass |
-| Units | bbox 111 × 91 × 91 mm | millimetres | ✅ pass |
+| Units | bbox 111 × 91 × 91 mm | millimeters | ✅ pass |
 | Minimum wall thickness | 2.61 mm (5th percentile 2.84 mm) | ≥ 0.4 mm supported / 0.5 mm unsupported | ✅ pass |
-| Support area, as modelled (axis horizontal) | 18.0% of surface below 45° | self-supporting at 45° | ❓ reorient |
+| Support area, as modeled (axis horizontal) | 18.0% of surface below 45° | self-supporting at 45° | ❓ reorient |
 | Support area, best orientation (axis vertical, exit up) | **2.5%** of surface | self-supporting at 45° | ✅ preferred |
 
 **Build orientation.** Stand the nozzle on its flange with the exit pointing up. The bell wall flares out at 10–27° from vertical, well inside the 45° self-supporting limit. The 45° convergent cone is right at the limit. The little remaining support is under the flange and at the throat.

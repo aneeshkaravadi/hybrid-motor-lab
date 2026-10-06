@@ -8,7 +8,7 @@ burn):
 
 which gives the classic closed form  Pc = (rho_p * a * A_b * c* / A_t)^(1/(1-n)).
 Thrust is F = C_F * Pc * A_t. Erosive burning and ignition transients are
-not modelled.
+not modeled.
 """
 from __future__ import annotations
 

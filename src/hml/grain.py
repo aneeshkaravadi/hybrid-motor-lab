@@ -33,7 +33,7 @@ class PortGeometry:
     """Port cross-section on a square grid covering the casing diameter."""
 
     diameter: float  # m, grain outer diameter
-    port_mask: np.ndarray  # bool, True = initially open (port), sampled at cell centres
+    port_mask: np.ndarray  # bool, True = initially open (port), sampled at cell centers
     name: str = "custom"
     coverage: np.ndarray | None = None  # fraction of each cell that is port, 0..1
     _cache: dict = field(default_factory=dict, repr=False)
@@ -56,7 +56,7 @@ class PortGeometry:
         return X**2 + Y**2 <= (self.diameter / 2) ** 2
 
     def distance(self) -> np.ndarray:
-        """Signed distance (m) from each cell centre to the port surface; negative inside the port."""
+        """Signed distance (m) from each cell center to the port surface; negative inside the port."""
         if "d" in self._cache:
             return self._cache["d"]
         cov = self.coverage if self.coverage is not None else self.port_mask.astype(float)
