@@ -138,7 +138,43 @@ $$a' = \frac{(\dot m_{ox} + \dot m_f)^{1-n} - \dot m_{ox}^{1-n}}{(1-n)\,\rho_f\,
 
 ---
 
-## 6. Chapman–Jouguet detonation (`rde.cj_state`)
+## 6. Nitrous oxide tank and injector (`tank.py`)
+
+Nitrous oxide is stored as a saturated liquid under its own vapor, so the tank pressure is the vapor pressure at the tank temperature, about 5 MPa at 20 °C. No pressurant gas is needed.
+
+**Tank state.** The tank is rigid (volume $V$) and adiabatic, and holds mass $m$ and internal energy $U$. Liquid and vapor are in equilibrium at one temperature $T$, so with vapor mass fraction $x$:
+
+$$\frac{V}{m} = (1-x)\,v_l(T) + x\,v_g(T), \qquad \frac{U}{m} = (1-x)\,u_l(T) + x\,u_g(T)$$
+
+That's two equations for $T$ and $x$. CoolProp solves them directly from density and energy (a "DU flash") with the Lemmon & Span equation of state for N₂O.
+
+**Draining.** Liquid leaves from the bottom and carries its enthalpy, flow work included:
+
+$$\frac{dm}{dt} = -\dot m, \qquad \frac{dU}{dt} = -\dot m\, h_l$$
+
+**Why the tank cools.** Write the same drain with $T$ as the unknown. Removing $dm_\text{out}$ of liquid while $dm_e$ evaporates ($dm_l = -dm_\text{out} - dm_e$, $dm_g = dm_e$), the fixed volume and the energy balance give
+
+$$v_l\,dm_l + v_g\,dm_g + B\,dT = 0, \qquad u_l\,dm_l + u_g\,dm_g + C\,dT = -h_l\,dm_\text{out}$$
+
+where $B = m_l v_l' + m_g v_g'$ and $C = m_l u_l' + m_g u_g'$ use slopes along the saturation curve. Eliminating $dm_e$ and using $u_{fg} + p\,v_{fg} = h_{fg}$:
+
+$$\frac{dT}{dm_\text{out}} = -\frac{v_l\, h_{fg}}{v_{fg}\, C - u_{fg}\, B}$$
+
+The numerator is the latent heat of the vapor that has to form to fill the space the liquid left, and that's what cools the tank. The test integrates this ODE on its own and compares it with the tank's mass-and-energy bookkeeping. After draining 2 kg from a 5 L tank, the two agree within 0.01 K (`tests/test_tank.py`).
+
+**Injector.** The mass flow is $\dot m = C_d A\, G$, with three standard models for the ideal mass flux $G$ from the tank ($p_1$) to the chamber ($p_2$):
+
+- **SPI** (single-phase incompressible): $G = \sqrt{2\rho_l\,(p_1 - p_2)}$. It treats the nitrous as liquid the whole way through, so it over-predicts.
+- **HEM** (homogeneous equilibrium): the liquid flashes to a liquid-vapor mixture that expands isentropically, $G = \rho_2\sqrt{2(h_1 - h_2)}$ at $s_2 = s_1$. As $p_2$ drops, $G$ rises and then peaks, near $0.7\,p_1$ for nitrous at 20 °C. Past that, the mixture's density would fall faster than its speed rises, so the flow is choked and stays at the peak. With a tiny pressure drop almost no vapor forms, and HEM approaches SPI (a test checks this).
+- **Dyer** (non-homogeneous non-equilibrium; Dyer et al., AIAA 2007-5702): bubbles need time to grow, so real flow through a short orifice falls between the two, $G = \frac{k\,G_\text{SPI} + G_\text{HEM}}{1 + k}$ with $k = \sqrt{(p_1 - p_2)/(p_v - p_2)}$. In a self-pressurized tank $p_1 = p_v$, so $k = 1$ and it's the plain average.
+
+**Coupling to the motor.** The injector flow depends on $P_c$, and $P_c$ on the total flow, so every step solves $P_c = (\dot m_{ox}(P_c) + \dot m_f)\,\eta_{c^*}\, c^*/A_t$ with a root finder (`tank.simulate_blowdown`).
+
+**Liquid nitrous in the Cantera table.** CoolProp and the NASA tables put the zero of enthalpy in different places. The liquid's NASA-scale enthalpy is the NASA value for N₂O gas at 298.15 K plus CoolProp's difference between saturated liquid at the tank temperature and the near-ideal gas at 298.15 K and 100 Pa. At 20 °C that's 255 kJ/kg below the gas, mostly the heat of vaporization (170 kJ/kg).
+
+---
+
+## 7. Chapman–Jouguet detonation (`rde.cj_state`)
 
 In the wave frame, reactants enter at speed $w_1$ and products leave at $u_2$. The conservation laws across the wave are:
 
@@ -158,7 +194,7 @@ $$u_2 = a_{2,\text{eq}}$$
 
 ---
 
-## 7. Why detonate? Cycle efficiencies (`rde.OneGamma`)
+## 8. Why detonate? Cycle efficiencies (`rde.OneGamma`)
 
 To compare cycles cleanly, model the gas with one $\gamma$ and a heat release $q$. For a perfect gas the CJ Mach number is
 
@@ -184,7 +220,7 @@ These are ideal-cycle numbers. Real RDEs lose a lot to unsteady flow, mixing and
 
 ---
 
-## 8. RDE geometry (`rde.bykovskii_sizing`)
+## 9. RDE geometry (`rde.bykovskii_sizing`)
 
 Rotating detonation waves need enough fresh mixture ahead of them. Bykovskii, Zhdan & Vedernikov (J. Propulsion & Power 22(6), 2006) correlated experiments in terms of the **detonation cell size** λ:
 
@@ -202,7 +238,7 @@ The number of waves is about $\pi d / \ell$, and wave frequency is $n\,D/(\pi d)
 
 ---
 
-## 9. Bell nozzle contour (`nozzle.bell_contour`)
+## 10. Bell nozzle contour (`nozzle.bell_contour`)
 
 This is Rao's thrust-optimized parabola approximation, built in three pieces:
 
@@ -217,6 +253,6 @@ The Bézier control point $Q$ is where the tangent lines at $N$ (slope $\tan\the
 ## What the models leave out (say this before someone else does)
 
 - **Ballistics:** erosive burning, ignition and tail-off transients, two-phase flow losses, nozzle erosion, and heat loss to the walls.
-- **Hybrids:** `simulate_axial` resolves the flux along the port, but its total-flux coefficient is matched to the averaged law at ignition rather than fit to data. Both models ignore the oxidizer-tank blowdown and the injector.
+- **Hybrids:** `simulate_axial` resolves the flux along the port, but its total-flux coefficient is matched to the averaged law at ignition rather than fit to data. The nitrous tank is adiabatic and always in equilibrium. Real tanks lag behind equilibrium, and the walls give heat back to the cooling liquid. The burn also stops when the liquid runs out instead of burning the vapor left behind.
 - **Thermochemistry:** gas-phase only (no condensed products such as Al₂O₃ or soot). The paraffin heat of formation is uncertain, but a test shows it moves c* by less than 1%.
 - **Detonation:** the one-gamma cycle analysis is an idealization. Real RDEs run 10–20% below CJ speed, and the sizing depends on an empirical cell size.

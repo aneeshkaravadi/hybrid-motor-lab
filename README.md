@@ -17,6 +17,7 @@ I led propulsion design for my high school's rocketry club, where we built and l
 - `thermo.py`: equilibrium combustion and nozzle expansion with [Cantera](https://cantera.org), basically the NASA CEA "rocket" problem
 - `grain.py`: burn-back for any port shape you can describe (tube, star, finocyl, wagon wheel, or your own function)
 - `solid.py` and `hybrid.py`: quasi-steady ballistics, including fuel regression $\dot r = aG^n$ for hybrids, either averaged over the port or marched along it
+- `tank.py`: a self-pressurizing nitrous oxide tank and injector feeding the hybrid, with [CoolProp](http://coolprop.org) for the nitrous properties
 - `rde.py`: Chapman–Jouguet detonation states, ideal cycle comparison, and rough RDE sizing
 - `nozzle.py`: a Rao-style bell contour that exports straight to STEP
 
@@ -41,6 +42,20 @@ The paraffin regression law I use is a fit against the oxidizer flux averaged ov
 To compare fairly, I matched the two models at ignition. A total-flux law needs a smaller coefficient to give the same starting fuel flow (0.88 of the published one for the 40 cm grain). After 8 s, the averaged law says the port has opened 23.6 mm everywhere. Marching along it, the head end has burned 21.8 mm and the aft end 25.0 mm, because the aft end starts out regressing 26% faster. In an 80 cm grain that's 49% faster, and the aft end burns 25.9 mm. So if I sized the casing liner from the averaged number, the aft end would eat 1.4 mm of the margin in the 40 cm grain and 2.3 mm in the 80 cm one.
 
 ![Regression along the port](docs/figures/axial_regression.png)
+
+## Feeding it from a nitrous tank
+
+Most amateur and university hybrids don't get a steady oxidizer flow. They run on nitrous oxide, which sits in the tank as a liquid under its own vapor pressure, about 5 MPa at room temperature, so it doesn't need a pressurant gas. The catch is that as liquid leaves, some of what's left boils to fill the space, and that cools the whole tank down. Colder nitrous has a lower vapor pressure, so the feed pressure falls through the burn.
+
+I modeled the tank as liquid and vapor in equilibrium at one temperature, tracked its mass and energy with CoolProp's equation of state for nitrous, and fed a paraffin grain through an injector. Over a 6.65 s burn the tank drops from 20 °C to 0.4 °C, and its pressure from 5.05 to 3.15 MPa. The oxidizer flow falls 23% and the thrust 27%.
+
+What surprised me was the O/F. With a constant oxidizer flow, the opening port pushes O/F up 9% over the burn. Fed from the tank, the falling flow cancels most of that, and O/F stays within 5%. The tank throttles itself down, which is what I had to compute a throttle schedule for in the GOX case. It helps that this regression law's $n = 0.555$ is close to 1/2, where the port barely moves O/F at all.
+
+![Nitrous blowdown](docs/figures/n2o_blowdown.png)
+
+Two practical things fell out of it. When the liquid runs out, 0.43 kg of the 3.5 kg load is still in the tank as vapor, which my model doesn't burn. And the injector model matters. At 2 MPa chamber pressure, Dyer's model gives 71% of the flow the simple liquid-only (SPI) formula does, because the nitrous starts boiling on its way through the holes. Holes sized with the liquid-only formula would leave the motor about 30% short on oxidizer.
+
+The paraffin/N₂O regression law comes from a McGill Rocket Team report ([arXiv:2302.06725](https://arxiv.org/abs/2302.06725)), which takes it from a 2013 thesis, and that report's own two hot fires fit very different numbers. So I'd treat the O/F values as a starting point.
 
 ## Detonation, briefly
 
@@ -81,15 +96,15 @@ Fit a and n on one motor with examples/compare_static_fire.py, then predict a se
 
 ```bash
 pip install -e ".[dev,cad]"
-pytest -q                          # 21 checks against known answers, a few seconds
+pytest -q                          # 26 checks against known answers, a few seconds
 python examples/make_figures.py    # regenerates every figure and number above
 ```
 
-The tests compare against things I could look up independently: textbook flame temperatures, published CJ speeds, the exact BATES burning area, isentropic flow tables, a mass balance on the solid motor, and an ODE solve of the fuel flow along a hybrid port.
+The tests compare against things I could look up independently: textbook flame temperatures, published CJ speeds, the exact BATES burning area, isentropic flow tables, a mass balance on the solid motor, an ODE solve of the fuel flow along a hybrid port, and a second, independent formulation of the nitrous tank drain.
 
 ## What's next
 
-Things I want to add are tracked in [issues](https://github.com/aneeshkaravadi/hybrid-motor-lab/issues): validation against real static-fire data, erosive burning, and oxidizer tank blowdown for the hybrid model.
+Things I want to add are tracked in [issues](https://github.com/aneeshkaravadi/hybrid-motor-lab/issues): validation against real static-fire data, erosive burning, and condensed products for aluminized propellants.
 
 ---
 

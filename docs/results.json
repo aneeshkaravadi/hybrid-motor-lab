@@ -106,6 +106,46 @@
       "total_flux_a_over_averaged_a": 0.803
     }
   },
+  "n2o_blowdown": {
+    "liquid_fill": 0.864,
+    "burn_s": 6.65,
+    "tank_MPa": [
+      5.05,
+      3.15
+    ],
+    "tank_C": [
+      20.0,
+      0.4
+    ],
+    "chamber_MPa": [
+      2.0,
+      1.54
+    ],
+    "mdot_ox": [
+      0.516,
+      0.399
+    ],
+    "of": [
+      5.98,
+      5.81
+    ],
+    "of_spread": 0.05,
+    "of_constant_flow": [
+      5.98,
+      6.52
+    ],
+    "of_spread_constant_flow": 0.086,
+    "thrust_N": [
+      1244,
+      907
+    ],
+    "impulse_Ns": 7215,
+    "isp_s": 205.5,
+    "oxidizer_used_kg": 3.07,
+    "vapor_left_kg": 0.43,
+    "dyer_over_spi_at_2MPa": 0.71,
+    "best_of_2MPa": 7.0
+  },
   "cj": {
     "H2-O2": {
       "D_m_s": 2836.9,

@@ -15,7 +15,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from hml import grain, hybrid, rde, solid, thermo
+from hml import grain, hybrid, rde, solid, tank, thermo
 from hml.nozzle import bell_contour, export_nozzle_cad
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -203,6 +203,70 @@ axes[1].set_title("longer grains open more unevenly")
 axes[1].legend(fontsize=8)
 fig.suptitle("Fuel burned near the head end adds to the flux downstream, so the aft end regresses faster")
 save(fig, "axial_regression.png")
+
+# Nitrous oxide from a self-pressurizing tank instead of a constant oxidizer flow.
+T_tank0 = 293.15
+n2o_table = thermo.build_table(tank.liquid_n2o(T_tank0), thermo.PARAFFIN, np.linspace(2.0, 12.0, 11),
+                               np.array([0.5e6, 1e6, 2e6, 3e6, 4e6]), area_ratio=5.0)
+n2o_port, n2o_law, L_n2o, throat_n2o = grain.tubular(0.10, 0.035), hybrid.PARAFFIN_N2O, 0.20, 0.024
+inj = tank.Injector(area=1.4e-5, cd=0.75, model="dyer")
+tk = tank.N2OTank(volume=0.005, mass=3.5, temperature=T_tank0)
+fill = tk.liquid_fill()
+bd = tank.simulate_blowdown(n2o_port, L_n2o, n2o_law, n2o_table, tk, inj, throat_n2o)
+cf_run = hybrid.simulate(n2o_port, L_n2o, n2o_law, n2o_table, float(bd.mdot_ox[0]), throat_n2o, burn_time=float(bd.t[-1]) + 0.01)
+fig, axes = plt.subplots(2, 2, figsize=(11, 7))
+ax = axes[0, 0]
+ax.plot(bd.t, bd.p_tank / 1e6, label="tank")
+ax.plot(bd.t, bd.pc / 1e6, label="chamber")
+ax.set_ylabel("pressure (MPa)")
+ax2 = ax.twinx()
+ax2.plot(bd.t, bd.T_tank - 273.15, "C3--", lw=1)
+ax2.set_ylabel("tank temperature (C, dashed)", color="C3")
+ax.set_title("the tank cools as liquid boils to fill the space")
+ax.legend(fontsize=8, loc="lower left")
+ax = axes[0, 1]
+ax.plot(bd.t, bd.of, label=f"tank-fed (drift {bd.of_spread() * 100:.1f}%)")
+ax.plot(cf_run.t, cf_run.of, "--", label=f"constant {bd.mdot_ox[0]:.2f} kg/s (drift {cf_run.of_spread() * 100:.1f}%)")
+ax.set_ylabel("O/F")
+ax.set_title("falling flow cancels most of the port's O/F rise")
+ax.legend(fontsize=8)
+ax = axes[1, 0]
+ax.plot(bd.t, bd.thrust, label="tank-fed")
+ax.plot(cf_run.t, cf_run.thrust, "--", label="constant oxidizer flow")
+ax.set_ylabel("thrust (N)")
+ax.set_xlabel("time (s)")
+ax.set_title("thrust follows the tank pressure down")
+ax.legend(fontsize=8)
+ax = axes[1, 1]
+st0 = tank.N2OTank(0.005, 3.5, T_tank0).state()
+pcs = np.linspace(0.2e6, 0.98 * st0.p, 200)
+for model, ls in (("spi", "--"), ("hem", ":"), ("dyer", "-")):
+    m = tank.Injector(1.0, 1.0, model)
+    ax.plot(pcs / 1e6, [m.mass_flux(st0, p) / 1000 for p in pcs], ls, label=model.upper() if model != "dyer" else "Dyer (used)")
+ax.set_xlabel("chamber pressure (MPa)")
+ax.set_ylabel("ideal mass flux (t/m^2/s)")
+ax.set_title(f"injector models, saturated N2O at {T_tank0 - 273.15:.0f} C")
+ax.legend(fontsize=8)
+for a in axes[0]:
+    a.set_xlabel("time (s)")
+fig.suptitle(f"N2O/paraffin hybrid fed from a {tk.volume * 1e3:.0f} L tank of 3.5 kg nitrous ({fill * 100:.0f}% liquid at 20 C)")
+save(fig, "n2o_blowdown.png")
+spi_dyer = tank.Injector(1.0, 1.0, "dyer").mass_flux(st0, 2e6) / tank.Injector(1.0, 1.0, "spi").mass_flux(st0, 2e6)
+results["n2o_blowdown"] = {
+    "liquid_fill": round(fill, 3), "burn_s": round(float(bd.t[-1]), 2),
+    "tank_MPa": [round(float(bd.p_tank[0]) / 1e6, 2), round(float(bd.p_tank[-1]) / 1e6, 2)],
+    "tank_C": [round(float(bd.T_tank[0]) - 273.15, 1), round(float(bd.T_tank[-1]) - 273.15, 1)],
+    "chamber_MPa": [round(float(bd.pc[0]) / 1e6, 2), round(float(bd.pc[-1]) / 1e6, 2)],
+    "mdot_ox": [round(float(bd.mdot_ox[0]), 3), round(float(bd.mdot_ox[-1]), 3)],
+    "of": [round(float(bd.of[0]), 2), round(float(bd.of[-1]), 2)], "of_spread": round(bd.of_spread(), 3),
+    "of_constant_flow": [round(float(cf_run.of[0]), 2), round(float(cf_run.of[-1]), 2)],
+    "of_spread_constant_flow": round(cf_run.of_spread(), 3),
+    "thrust_N": [round(float(bd.thrust[0])), round(float(bd.thrust[-1]))],
+    "impulse_Ns": round(bd.total_impulse), "isp_s": round(bd.isp, 1),
+    "oxidizer_used_kg": round(bd.ox_mass, 2), "vapor_left_kg": round(bd.vapor_left, 2),
+    "dyer_over_spi_at_2MPa": round(spi_dyer, 3),
+    "best_of_2MPa": float(n2o_table.of[int(np.argmax(n2o_table.cstar[:, 2]))]),
+}
 
 # ------------------------------------------------------------------ 4. detonation / RDE
 mixtures = {
