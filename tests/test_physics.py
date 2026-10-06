@@ -34,6 +34,36 @@ def test_paraffin_enthalpy_sensitivity_is_small():
         assert abs(c - base) / base < 0.01
 
 
+# NASA CEA Example 5 (RP-1311 Part II): an aluminized AP composite, HP equilibrium.
+CEA_EX5 = [(thermo.AP, 72.06), (thermo.CEA_BINDER, 18.58), (thermo.ALUMINUM, 9.0), (thermo.MGO, 0.2),
+           (thermo.WATER_LIQUID, 0.16)]
+CEA_EX5_T = {500: 2722.99, 250: 2706.53, 125: 2686.16, 50: 2653.00, 5: 2540.82}  # psia: K
+CEA_EX5_X_500PSIA = {"AL2O3(L)": 0.03672, "HCL": 0.13187, "H2": 0.32150, "CO": 0.26456, "N2": 0.06833,
+                     "H2O": 0.14650, "CO2": 0.01778}
+
+
+def test_condensed_equilibrium_matches_cea_example_5():
+    eq = thermo.Equilibrium(CEA_EX5)
+    assert eq.h0 / 4184.0 == pytest.approx(-484.77, abs=0.02)  # CEA's mixture enthalpy, cal/g
+    for psia, T in CEA_EX5_T.items():
+        st = eq.hp(psia * 6894.757)
+        assert st.T == pytest.approx(T, abs=5.0)
+        if psia == 500:
+            for sp, x in CEA_EX5_X_500PSIA.items():
+                assert st.X[sp] == pytest.approx(x, rel=0.01), sp
+    # leave out the condensed phase and the aluminum ends up as gaseous chlorides, 500 K too cold
+    assert thermo.equilibrate_hp(CEA_EX5, 500 * 6894.757).T < CEA_EX5_T[500] - 400
+
+
+def test_multiphase_rocket_is_the_gas_rocket_when_nothing_condenses():
+    mix = [(thermo.AP, 72.06), (thermo.CEA_BINDER, 18.58)]
+    gas = thermo.rocket(mix, 6.9e6, 10.0, 101325.0)
+    multi = thermo.rocket_multiphase(mix, 6.9e6, 10.0, 101325.0)
+    assert multi.chamber.condensed == {}
+    assert multi.cstar == pytest.approx(gas.cstar, rel=1e-4)
+    assert multi.isp_vac == pytest.approx(gas.isp_vac, rel=1e-4)
+
+
 # ---------------------------------------------------------------- detonation
 @pytest.mark.parametrize("name, mix, D_lit", [
     ("H2-O2", thermo.bipropellant(thermo.O2, thermo.H2, 32 / 4.032), 2836),
