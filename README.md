@@ -16,7 +16,7 @@ I led propulsion design for my high school's rocketry club, where we built and l
 
 - `thermo.py`: equilibrium combustion and nozzle expansion with [Cantera](https://cantera.org), basically the NASA CEA "rocket" problem
 - `grain.py`: burn-back for any port shape you can describe (tube, star, finocyl, wagon wheel, or your own function)
-- `solid.py` and `hybrid.py`: quasi-steady ballistics, including fuel regression $\dot r = aG^n$ for hybrids
+- `solid.py` and `hybrid.py`: quasi-steady ballistics, including fuel regression $\dot r = aG^n$ for hybrids, either averaged over the port or marched along it
 - `rde.py`: Chapman–Jouguet detonation states, ideal cycle comparison, and rough RDE sizing
 - `nozzle.py`: a Rao-style bell contour that exports straight to STEP
 
@@ -33,6 +33,14 @@ It took me a while to see why. For any port that grows into a scaled copy of its
 What does work is running the model backwards. To hold O/F flat you either throttle the oxidizer down over the burn (0.73 to 0.41 kg/s for my test case), or you print a fuel whose regression rate increases by about 24% from the port outward. That second one is a fuel grain you could only make by printing it.
 
 ![O/F remedies](docs/figures/of_remedies.png)
+
+## Where the port actually opens
+
+The paraffin regression law I use is a fit against the oxidizer flux averaged over the whole grain, so the model burns every slice of the port at the same rate. Really, the fuel that burns near the head end flows down the port too, so the mass flux, and with it the regression rate, grows toward the aft end. So I also march along the port with the total flux. Inside one slice the flux equation integrates exactly, so there's no step-size error along the grain, and a test checks it against a numerical ODE solve.
+
+To compare fairly, I matched the two models at ignition. A total-flux law needs a smaller coefficient to give the same starting fuel flow (0.88 of the published one for the 40 cm grain). After 8 s, the averaged law says the port has opened 23.6 mm everywhere. Marching along it, the head end has burned 21.8 mm and the aft end 25.0 mm, because the aft end starts out regressing 26% faster. In an 80 cm grain that's 49% faster, and the aft end burns 25.9 mm. So if I sized the casing liner from the averaged number, the aft end would eat 1.4 mm of the margin in the 40 cm grain and 2.3 mm in the 80 cm one.
+
+![Regression along the port](docs/figures/axial_regression.png)
 
 ## Detonation, briefly
 
@@ -73,11 +81,11 @@ Fit a and n on one motor with examples/compare_static_fire.py, then predict a se
 
 ```bash
 pip install -e ".[dev,cad]"
-pytest -q                          # 18 checks against known answers, a few seconds
+pytest -q                          # 21 checks against known answers, a few seconds
 python examples/make_figures.py    # regenerates every figure and number above
 ```
 
-The tests compare against things I could look up independently: textbook flame temperatures, published CJ speeds, the exact BATES burning area, isentropic flow tables, and a mass balance on the solid motor.
+The tests compare against things I could look up independently: textbook flame temperatures, published CJ speeds, the exact BATES burning area, isentropic flow tables, a mass balance on the solid motor, and an ODE solve of the fuel flow along a hybrid port.
 
 ## What's next
 

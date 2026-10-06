@@ -173,6 +173,37 @@ results["remedies"] = {"target_of": round(target, 2),
                        "throttle_range_kg_s": [round(throttle(0.0), 3), round(throttle(float(base.web[-1])), 3)],
                        "grading_range": [round(graded(0.0), 3), round(graded(float(base.web[-1])), 3)]}
 
+# Regression along the port: the averaged law burns every slice the same, but
+# fuel from the head end adds to the flux further down, so the aft end opens faster.
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.8))
+results["axial_regression"] = {}
+for Lg in (0.2, 0.4, 0.8):
+    tl = hybrid.total_flux_law(law, base_port, Lg, mdot_ox)
+    avg = hybrid.simulate(base_port, Lg, law, table, mdot_ox, dt_throat, burn_time=8.0)
+    ax_r = hybrid.simulate_axial(base_port, Lg, tl, table, mdot_ox, dt_throat, burn_time=8.0)
+    if Lg == L:
+        for k, ts in enumerate((2.0, 4.0, 6.0, 8.0 - 0.01)):
+            i = int(np.searchsorted(ax_r.t, ts))
+            axes[0].plot(ax_r.z * 100, ax_r.web_z[i] * 1000, color=f"C{k}", label=f"t = {ts:.0f} s")
+            axes[0].axhline(avg.web[i] * 1000, color=f"C{k}", ls=":", lw=1)
+    axes[1].plot(ax_r.z / Lg, ax_r.web_z[-1] * 1000, label=f"{Lg * 100:.0f} cm grain")
+    results["axial_regression"][f"{Lg * 100:.0f}cm"] = {
+        "web_head_mm": round(float(ax_r.web_z[-1, 0]) * 1000, 1), "web_aft_mm": round(float(ax_r.web_z[-1, -1]) * 1000, 1),
+        "web_averaged_model_mm": round(float(avg.web[-1]) * 1000, 1),
+        "aft_vs_head_rate_at_ignition": round(float(ax_r.web_z[1, -1] / ax_r.web_z[1, 0]), 3),
+        "total_flux_a_over_averaged_a": round(tl.a / law.a, 3)}
+axes[1].axhline(avg.web[-1] * 1000, color="k", ls=":", lw=1, label="averaged law (any length)")
+axes[0].set_xlabel("distance from the head end (cm)")
+axes[0].set_ylabel("web burned (mm)")
+axes[0].set_title(f"{L * 100:.0f} cm grain (dotted: averaged law)")
+axes[0].legend(fontsize=8)
+axes[1].set_xlabel("position along the grain, head (0) to aft (1)")
+axes[1].set_ylabel("web burned after 8 s (mm)")
+axes[1].set_title("longer grains open more unevenly")
+axes[1].legend(fontsize=8)
+fig.suptitle("Fuel burned near the head end adds to the flux downstream, so the aft end regresses faster")
+save(fig, "axial_regression.png")
+
 # ------------------------------------------------------------------ 4. detonation / RDE
 mixtures = {
     "H2-O2": thermo.bipropellant(thermo.O2, thermo.H2, 32 / 4.032),

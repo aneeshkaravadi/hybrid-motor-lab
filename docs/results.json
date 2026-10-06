@@ -83,6 +83,29 @@
       1.074
     ]
   },
+  "axial_regression": {
+    "20cm": {
+      "web_head_mm": 22.7,
+      "web_aft_mm": 24.4,
+      "web_averaged_model_mm": 23.6,
+      "aft_vs_head_rate_at_ignition": 1.134,
+      "total_flux_a_over_averaged_a": 0.936
+    },
+    "40cm": {
+      "web_head_mm": 21.8,
+      "web_aft_mm": 25.0,
+      "web_averaged_model_mm": 23.6,
+      "aft_vs_head_rate_at_ignition": 1.259,
+      "total_flux_a_over_averaged_a": 0.884
+    },
+    "80cm": {
+      "web_head_mm": 20.5,
+      "web_aft_mm": 25.9,
+      "web_averaged_model_mm": 23.6,
+      "aft_vs_head_rate_at_ignition": 1.487,
+      "total_flux_a_over_averaged_a": 0.803
+    }
+  },
   "cj": {
     "H2-O2": {
       "D_m_s": 2836.9,

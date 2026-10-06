@@ -114,6 +114,26 @@ $$\frac{a(x)}{a_0} = \frac{\dot m_{ox}^{\,1-n}\, A(x)^{n}}{(O/F)\,\rho_f\, a_0\,
 
 Both are inverse solutions of the same model, so in simulation they hold O/F exactly flat *by construction*. The useful output is the schedule: how much throttle range, or how much regression-rate grading, the hardware must actually deliver.
 
+### Regression along the port (`hybrid.simulate_axial`)
+
+The averaged law gives every slice of the grain the same $G_{ox}$. But fuel burned near the head end joins the flow, so the total mass flow $\dot m(z)$ grows along the port. With the regression following the total flux $G = \dot m/A$, the fuel added over a length $dz$ is
+
+$$\frac{d\dot m}{dz} = \rho_f\, a\, \left(\frac{\dot m}{A}\right)^{n} P$$
+
+Inside one axial cell, $A$ and $P$ are fixed, so this separates:
+
+$$\dot m^{-n}\, d\dot m = \rho_f\, a\, P A^{-n}\, dz \quad\Rightarrow\quad \dot m_\text{out}^{\,1-n} = \dot m_\text{in}^{\,1-n} + (1-n)\,\rho_f\, a\, P A^{-n}\, \Delta z$$
+
+Down the whole port, $\dot m^{1-n}$ is a cumulative sum starting from $\dot m_{ox}$ at the head end, with no step-size error in $z$. Each cell's regression rate is its added fuel divided by $\rho_f P\, \Delta z$, and each cell burns back on its own copy of the port's $A(x)$ and $P(x)$ curves.
+
+**Matching the coefficient.** Published laws like Karabeyoglu's are fits against the averaged oxidizer flux. A total-flux law with the same $n$ needs a smaller $a'$. At ignition the port is uniform, so the closed form holds along the whole length $L$, and requiring the same starting fuel flow $\dot m_f$ gives
+
+$$a' = \frac{(\dot m_{ox} + \dot m_f)^{1-n} - \dot m_{ox}^{1-n}}{(1-n)\,\rho_f\, P A^{-n} L}$$
+
+(`hybrid.total_flux_law`). That is a modeling choice for comparing the two, not a fit to data.
+
+**Checks:** the cell-by-cell closed form matches `scipy.integrate.solve_ivp` to $10^{-8}$. Using the oxidizer flux in every cell reproduces the averaged model exactly. The fuel burned equals the volume the port has grown by, within 0.2% (`tests/test_physics.py`).
+
 **Units.** The literature writes $\dot r[\text{mm/s}] = a\, G[\text{g/cm}^2\text{s}]^n$. Since $G_\text{cgs} = G_\text{SI}/10$, the SI coefficient is $a_\text{SI} = 10^{-3}\, a \cdot 10^{-n}$ (`test_regression_unit_conversion`).
 
 ---
@@ -197,6 +217,6 @@ The Bézier control point $Q$ is where the tangent lines at $N$ (slope $\tan\the
 ## What the models leave out (say this before someone else does)
 
 - **Ballistics:** erosive burning, ignition and tail-off transients, two-phase flow losses, nozzle erosion, and heat loss to the walls.
-- **Hybrids:** the regression law is space-averaged, so there is no axial variation of $G$. It also ignores the oxidizer-tank blowdown and the injector.
+- **Hybrids:** `simulate_axial` resolves the flux along the port, but its total-flux coefficient is matched to the averaged law at ignition rather than fit to data. Both models ignore the oxidizer-tank blowdown and the injector.
 - **Thermochemistry:** gas-phase only (no condensed products such as Al₂O₃ or soot). The paraffin heat of formation is uncertain, but a test shows it moves c* by less than 1%.
 - **Detonation:** the one-gamma cycle analysis is an idealization. Real RDEs run 10–20% below CJ speed, and the sizing depends on an empirical cell size.
