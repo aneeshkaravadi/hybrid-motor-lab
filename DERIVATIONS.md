@@ -50,6 +50,20 @@ $$\varepsilon = \frac{1}{M_e}\left[\frac{2}{\gamma+1}\left(1+\frac{\gamma-1}{2}M
 
 and then $p_e/P_c = \left(1 + \frac{\gamma-1}{2}M_e^2\right)^{-\gamma/(\gamma-1)}$.
 
+### Condensed products (`thermo.Equilibrium`, `thermo.rocket_multiphase`)
+
+Aluminum burns to Al₂O₃, which is liquid in the chamber and freezes in the nozzle at 2327 K. Gibbs minimization still applies, but now over the gas plus every NASA condensed species made of the elements present, each as its own pure phase. Three details, all following CEA:
+
+- **Temperature ranges.** A condensed species only takes part between its data's temperature limits, so liquid alumina exists above 2327 K and solid below. Extrapolating each phase's polynomial outside its range could make the wrong phase win.
+- **No volume.** CEA treats condensed products as taking up no volume. Cantera's default density for a pure condensed phase (0.001 kg/m³) would add $(P - P_\text{ref})\,v$ to its Gibbs energy, about $3\times10^8$ J/mol at 34 bar, and alumina could never form. Each phase gets a negligible molar volume instead.
+- **HP and SP by temperature.** For a trial $T$, Cantera's multiphase solver finds the $(T, P)$ equilibrium. A root find on $T$ then matches the reactants' enthalpy (chamber) or the chamber entropy (nozzle).
+
+**Freezing in the nozzle.** At 2327 K the mixture's entropy jumps by the latent heat of fusion, so for some pressures no single temperature matches the chamber entropy. Physically, the temperature holds at 2327 K while the alumina freezes. The model takes the two sides of the jump and mixes them by the lever rule, $w = (s - s_-)/(s_+ - s_-)$.
+
+**Throat.** With condensed products in equilibrium, the flow chokes where the mass flux $\rho v$ peaks, with $\rho$ the mass per gas volume. That is where the velocity equals the mixture's equilibrium sound speed. The code maximizes $\rho v$ along the isentrope directly.
+
+**Checks:** NASA's CEA Example 5 (RP-1311 Part II) is an aluminized AP composite with 9% Al. The model's HP temperatures are within 5 K of CEA's at all five pressures from 500 to 5 psia, and the product mole fractions (Al₂O₃(L), HCl, H₂, CO, N₂, H₂O, CO₂) are within 1%. With no aluminum, nothing condenses and `rocket_multiphase` matches the gas-only `rocket` to $10^{-4}$ in $c^*$ and $I_{sp}$, even though the two find the throat differently (`tests/test_physics.py`).
+
 ---
 
 ## 3. Grain burn-back (`grain.PortGeometry`)
@@ -270,5 +284,5 @@ The Bézier control point $Q$ is where the tangent lines at $N$ (slope $\tan\the
 
 - **Ballistics:** ignition and tail-off transients, two-phase flow losses, nozzle erosion, and heat loss to the walls. Erosive burning is an empirical correlation with an estimated gas viscosity. End faces burn at the pressure-only rate, and the pressure is taken as uniform along the port, which holds unless the port nears choking (flagged).
 - **Hybrids:** `simulate_axial` resolves the flux along the port, but its total-flux coefficient is matched to the averaged law at ignition rather than fit to data. The nitrous tank is adiabatic and always in equilibrium. Real tanks lag behind equilibrium, and the walls give heat back to the cooling liquid. The burn also stops when the liquid runs out instead of burning the vapor left behind.
-- **Thermochemistry:** gas-phase only (no condensed products such as Al₂O₃ or soot). The paraffin heat of formation is uncertain, but a test shows it moves c* by less than 1%.
+- **Thermochemistry:** condensed products stay in equilibrium with the gas, and the droplets are assumed to keep up with it in speed and temperature, so aluminized $I_{sp}$ is an upper bound. Real motors lose a few percent to particle lag. The paraffin heat of formation is uncertain, but a test shows it moves c* by less than 1%.
 - **Detonation:** the one-gamma cycle analysis is an idealization. Real RDEs run 10–20% below CJ speed, and the sizing depends on an empirical cell size.

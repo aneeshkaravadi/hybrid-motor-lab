@@ -2,7 +2,7 @@
 
     python examples/make_figures.py
 
-Takes about a minute (most of it is building the Cantera performance table).
+Takes about a minute on one core, nearly all of it Cantera: the performance tables and the aluminum sweep.
 """
 from __future__ import annotations
 
@@ -126,6 +126,46 @@ results["erosive"] = {
     "boost_first_port_flux_over_throat": round(float(choked.port_choke_ratio[0]), 2),
     "boost_first_peak_port_flux": round(float(choked.peak_flux[0])),
     "throat_flux_at_ignition": round(float(choked.pc[0]) / prop.cstar),
+}
+
+# Aluminized composite: how much aluminum helps, with and without condensed products
+# in the equilibrium. AP and binder in the ratio of NASA CEA's Example 5, at 1000 psia.
+pc_al = 1000 * 6894.757
+al_fracs = np.round(np.arange(0.0, 0.241, 0.03), 2)
+multi, gas_only = [], []
+for al in al_fracs:
+    mix = [(thermo.AP, (1 - al) * 72.06 / 90.64), (thermo.CEA_BINDER, (1 - al) * 18.58 / 90.64)]
+    mix += [(thermo.ALUMINUM, al)] if al > 0 else []
+    multi.append(thermo.rocket_multiphase(mix, pc_al, area_ratio=10.0, p_ambient=101325.0))
+    gas_only.append(thermo.rocket(mix, pc_al, area_ratio=10.0, p_ambient=101325.0))
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.9))
+axes[0].plot(al_fracs * 100, [r.isp for r in multi], "o-", label="with condensed Al2O3 (and freezing)")
+axes[0].plot(al_fracs * 100, [r.isp for r in gas_only], "s--", label="gas-phase products only")
+axes[0].set_xlabel("aluminum (% by mass)")
+axes[0].set_ylabel("Isp at sea level (s)")
+axes[0].set_title("1000 psia, area ratio 10")
+axes[0].legend(fontsize=8)
+axes[1].plot(al_fracs * 100, [r.chamber.T for r in multi], "o-", label="chamber temperature, with condensed")
+axes[1].plot(al_fracs * 100, [r.chamber.T for r in gas_only], "s--", label="chamber temperature, gas only")
+axes[1].set_xlabel("aluminum (% by mass)")
+axes[1].set_ylabel("chamber temperature (K)")
+ax2 = axes[1].twinx()
+ax2.plot(al_fracs * 100, [100 * r.condensed_fraction for r in multi], "C2:", label="condensed share of the exhaust")
+ax2.set_ylabel("condensed share of exhaust mass (%, dotted)", color="C2")
+axes[1].legend(fontsize=8, loc="upper left")
+axes[1].set_title("most of the gain is heat from burning to Al2O3")
+fig.suptitle("Aluminum in an AP composite (CEA Example 5's binder): leaving out the condensed phase gets it backwards")
+save(fig, "aluminized_isp.png")
+best = int(np.argmax([r.isp for r in multi]))
+best_gas = int(np.argmax([r.isp for r in gas_only]))
+results["aluminized"] = {
+    "al_pct": [round(float(a) * 100) for a in al_fracs],
+    "isp_condensed": [round(r.isp, 1) for r in multi], "isp_vac_condensed": [round(r.isp_vac, 1) for r in multi],
+    "isp_gas_only": [round(r.isp, 1) for r in gas_only],
+    "tc_condensed": [round(r.chamber.T) for r in multi], "tc_gas_only": [round(r.chamber.T) for r in gas_only],
+    "condensed_fraction": [round(r.condensed_fraction, 3) for r in multi],
+    "best_al_pct": round(float(al_fracs[best]) * 100), "best_isp": round(multi[best].isp, 1),
+    "best_al_pct_gas_only": round(float(al_fracs[best_gas]) * 100), "best_isp_gas_only": round(gas_only[best_gas].isp, 1),
 }
 
 # ------------------------------------------------------------------ 3. hybrid thermochemistry + O/F drift

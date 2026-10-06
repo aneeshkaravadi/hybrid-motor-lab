@@ -14,7 +14,7 @@ I led propulsion design for my high school's rocketry club, where we built and l
 
 ## What's in it
 
-- `thermo.py`: equilibrium combustion and nozzle expansion with [Cantera](https://cantera.org), basically the NASA CEA "rocket" problem
+- `thermo.py`: equilibrium combustion and nozzle expansion with [Cantera](https://cantera.org), basically the NASA CEA "rocket" problem, including condensed products like liquid alumina
 - `grain.py`: burn-back for any port shape you can describe (tube, star, finocyl, wagon wheel, or your own function)
 - `solid.py` and `hybrid.py`: quasi-steady ballistics, with erosive burning for solids and fuel regression $\dot r = aG^n$ for hybrids, either averaged over the port or marched along it
 - `tank.py`: a self-pressurizing nitrous oxide tank and injector feeding the hybrid, with [CoolProp](http://coolprop.org) for the nitrous properties
@@ -79,6 +79,14 @@ My 4-grain BATES example has a 20 mm core and a 17 mm throat, so the port is onl
 
 ![Erosive burning](docs/figures/erosive_burning.png)
 
+### Aluminum
+
+Most high-performance composite propellants are 15 to 20% aluminum powder, and my thermochemistry couldn't handle it. Aluminum burns to Al₂O₃, which is a liquid at chamber temperature, and my equilibrium only had gases. I added condensed products the way NASA's CEA does. Every solid or liquid that can form from the elements present sits next to the gas as its own phase, only within its own temperature range, and takes up no volume. Then I checked it against CEA's own Example 5, an aluminized AP propellant. My chamber temperatures land within 5 K of CEA's at all five pressures, and the product mole fractions within 1%.
+
+Leaving the liquid out is a big mistake. Without it, the aluminum has nowhere to go but gaseous chlorides, and Example 5 comes out 500 K too cold. Sweeping the aluminum content, the full model peaks at 18% (263.6 s at sea level, 16% better than no aluminum), close to the 15 to 20% real motors use. The gas-only model says the opposite: it peaks at 6% and loses performance after that. Both assume the alumina droplets keep up with the gas, which real ones don't quite, so a real motor would lose a few percent of that to two-phase flow.
+
+![Aluminized Isp](docs/figures/aluminized_isp.png)
+
 <!-- TODO(Aneesh): once you have real data, add a section here, e.g.
 ## Checking it against real motors
 Fit a and n on one motor with examples/compare_static_fire.py, then predict a second motor of the same propellant
@@ -105,15 +113,15 @@ Fit a and n on one motor with examples/compare_static_fire.py, then predict a se
 
 ```bash
 pip install -e ".[dev,cad]"
-pytest -q                          # 31 checks against known answers, a few seconds
+pytest -q                          # 33 checks against known answers, about 15 seconds
 python examples/make_figures.py    # regenerates every figure and number above
 ```
 
-The tests compare against things I could look up independently: textbook flame temperatures, published CJ speeds, the exact BATES burning area, isentropic flow tables, a published erosive-burning correlation, a mass balance on the solid motor, an ODE solve of the fuel flow along a hybrid port, and a second, independent formulation of the nitrous tank drain.
+The tests compare against things I could look up independently: textbook flame temperatures, NASA CEA's own aluminized-propellant example, published CJ speeds, the exact BATES burning area, isentropic flow tables, a published erosive-burning correlation, a mass balance on the solid motor, an ODE solve of the fuel flow along a hybrid port, and a second, independent formulation of the nitrous tank drain.
 
 ## What's next
 
-Things I want to add are tracked in [issues](https://github.com/aneeshkaravadi/hybrid-motor-lab/issues): validation against real static-fire data, and condensed products for aluminized propellants.
+Things I want to add are tracked in [issues](https://github.com/aneeshkaravadi/hybrid-motor-lab/issues): validation against real static-fire data.
 
 ---
 
