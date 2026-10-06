@@ -91,6 +91,51 @@ def test_solid_mass_balance():
     assert burned == pytest.approx(r.propellant_mass, rel=0.03)
 
 
+def test_erosive_ratio_matches_mukunda_paul_by_hand():
+    prop = solid.EXAMPLE_APCP
+    r0, d = 0.006, 0.02
+    re0 = prop.density * r0 * d / prop.viscosity
+    # pick the port flux that makes g exactly 100 (and 30, under the threshold of 35)
+    G100 = 100 * (re0 / 1000) ** 0.125 * prop.density * r0
+    assert solid.erosive_ratio(G100, r0, prop, d) == pytest.approx(1 + 0.023 * (100**0.8 - 35**0.8), rel=1e-12)
+    assert solid.erosive_ratio(0.3 * G100, r0, prop, d) == 1.0
+
+
+@pytest.mark.parametrize("name", ["bates", "star"])
+def test_axial_solid_model_without_erosion_is_the_closed_form(name):
+    if name == "bates":  # uninhibited ends, so the cells at each end burn away
+        segs, throat = [grain.Segment(grain.tubular(0.054, 0.02), 0.07) for _ in range(4)], 0.017
+    else:
+        segs, throat = [grain.Segment(grain.star(0.054, 6, 0.019, 0.009), 0.28, True)], 0.017
+    ref = solid.simulate(segs, solid.EXAMPLE_APCP, throat, 6.0)
+    ax = solid.simulate_erosive(segs, solid.EXAMPLE_APCP, throat, 6.0, erosive=False)
+    assert ax.pc == pytest.approx(ref.pc, rel=1e-9)
+    assert ax.t == pytest.approx(ref.t, rel=1e-9)
+
+
+def test_erosive_burning_raises_the_start_pressure_and_conserves_mass():
+    segs = [grain.Segment(grain.tubular(0.054, 0.02), 0.07) for _ in range(4)]
+    ref = solid.simulate(segs, solid.EXAMPLE_APCP, 0.017, 6.0)
+    ero = solid.simulate_erosive(segs, solid.EXAMPLE_APCP, 0.017, 6.0)
+    assert ero.pc[0] > 1.1 * ref.pc[0]
+    assert ero.peak_ratio[0] > 1.3 and ero.port_choke_ratio.max() < 1
+    # the head-end grain sees too little flow to erode; the nozzle-end one burns faster toward the nozzle
+    web = ero.web_z[len(ero.t) // 4]
+    head, aft = web[:40], web[120:]
+    assert np.ptp(head) == pytest.approx(0.0, abs=1e-12)
+    assert np.all(np.diff(aft) > 0) and aft[-1] > 1.05 * aft[0] > 1.05 * head[0]
+    assert np.trapezoid(ero.mdot, ero.t) == pytest.approx(ero.propellant_mass, rel=0.03)
+
+
+def test_erosive_model_flags_a_port_that_would_choke():
+    """All the boost grain's gas has to squeeze through the sustainer's port, which is smaller than the throat."""
+    boost = grain.Segment(grain.finocyl(0.054, 0.030, 6, 0.008, 0.003), 0.12, True)
+    sustain = grain.Segment(grain.tubular(0.054, 0.010), 0.16, True)
+    bad = solid.simulate_erosive([boost, sustain], solid.EXAMPLE_APCP, 0.015, 6.0)
+    good = solid.simulate_erosive([sustain, boost], solid.EXAMPLE_APCP, 0.015, 6.0)
+    assert bad.port_choke_ratio[0] > 1 > good.port_choke_ratio.max()
+
+
 def test_hybrid_of_rises_for_n_above_half_and_remedies_flatten_it():
     table = thermo.build_table(thermo.O2, thermo.PARAFFIN, np.linspace(1.5, 3.5, 5), [1e6, 2e6, 3e6], 5.0)
     port = grain.tubular(0.1, 0.035)
