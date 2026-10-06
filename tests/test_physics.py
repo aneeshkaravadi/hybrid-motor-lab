@@ -17,6 +17,23 @@ def test_adiabatic_flame_temperature(ox, fuel, of, expected_K):
     assert gas.T == pytest.approx(expected_K, abs=25)
 
 
+@pytest.mark.parametrize("ox, ox_wt, T_cea, mw_cea, cstar_cea", [
+    (thermo.N2O, 7.0, 3421.02, 25.739, 1635.6),  # N2O / paraffin, O/F 7 by weight
+    (thermo.O2, 48.5 * thermo.O2.molar_mass / ((32 * 12.011 + 66 * 1.008) / 1000), 3791.06, 25.292, 1759.0),  # 48.5 mol O2 per mol
+])
+def test_paraffin_combustion_matches_nasa_cea(ox, ox_wt, T_cea, mw_cea, cstar_cea):
+    """NASA CEA2 runs at 100 bar posted with Stanford's AA283 course resources (paraffinN2O.out, paraffin.out).
+
+    Their paraffin is C32H66 at -698.52 kJ/mol. CEA ran a finite-area combustor (Ac/At = 3), which
+    barely moves c*; the chamber temperature and molar mass are the plain HP equilibrium either way.
+    """
+    wax = thermo.Reactant("paraffin, as in the CEA runs", {"C": 32, "H": 66}, dhf_kj_mol=-698.52)
+    r = thermo.rocket(thermo.bipropellant(ox, wax, ox_wt), 100e5, 10.0)
+    assert r.chamber.T == pytest.approx(T_cea, abs=3.0)
+    assert r.chamber.mw == pytest.approx(mw_cea, rel=1e-3)
+    assert r.cstar == pytest.approx(cstar_cea, rel=2e-3)
+
+
 def test_rocket_throat_is_sonic_and_area_ratio_hit():
     r = thermo.rocket(thermo.bipropellant(thermo.O2, thermo.PARAFFIN, 2.4), 3e6, 6.0, p_ambient=101325.0)
     assert 0.5 < r.throat.P / 3e6 < 0.62  # pt/pc for gamma ~ 1.1-1.3

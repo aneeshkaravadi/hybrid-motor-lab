@@ -112,7 +112,12 @@ def element_moles(reactants: list[tuple[Reactant, float]]) -> tuple[dict[str, fl
 
 
 def equilibrate_hp(reactants: list[tuple[Reactant, float]], P: float) -> ct.Solution:
-    """Adiabatic constant-pressure equilibrium of a reactant mixture (mass fractions)."""
+    """Adiabatic constant-pressure equilibrium of a reactant mixture (mass fractions).
+
+    Returns the shared, cached products phase for these elements, set to the
+    equilibrium state. The next call that uses the same elements (``rocket``
+    included) moves it, so read what you need from it first.
+    """
     b, h = element_moles(reactants)
     gas = _products_phase(tuple(sorted(b)))
     # Seed with atoms carrying the exact element ratios, relax to a sane state,

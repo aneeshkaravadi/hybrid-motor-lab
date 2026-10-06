@@ -113,11 +113,11 @@ Fit a and n on one motor with examples/compare_static_fire.py, then predict a se
 
 ```bash
 pip install -e ".[dev,cad]"
-pytest -q                          # 33 checks against known answers, about 15 seconds
+pytest -q                          # 35 checks against known answers, about 15 seconds
 python examples/make_figures.py    # regenerates every figure and number above
 ```
 
-The tests compare against things I could look up independently: textbook flame temperatures, NASA CEA's own aluminized-propellant example, published CJ speeds, the exact BATES burning area, isentropic flow tables, a published erosive-burning correlation, a mass balance on the solid motor, an ODE solve of the fuel flow along a hybrid port, and a second, independent formulation of the nitrous tank drain.
+The tests compare against things I could look up independently: textbook flame temperatures, NASA CEA runs of paraffin with N₂O and O₂ and CEA's own aluminized-propellant example, published CJ speeds, the exact BATES burning area, isentropic flow tables, a published erosive-burning correlation, a mass balance on the solid motor, an ODE solve of the fuel flow along a hybrid port, and a second, independent formulation of the nitrous tank drain.
 
 ## What's next
 

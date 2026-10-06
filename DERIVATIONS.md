@@ -14,7 +14,7 @@ where $y_i$ are mass fractions and each $h_i$ includes its heat of formation. Am
 
 **Implementation detail.** Cantera needs a starting composition with the correct element ratios. The code seeds the gas with free atoms (C, H, O, N) in the exact proportions, equilibrates at 3000 K so the state is physical, then imposes the reactant enthalpy and solves the HP equilibrium.
 
-**Check:** stoichiometric H₂/O₂ at 1 atm gives 3077 K, CH₄/air 2225 K and CH₄/O₂ 3052 K. Textbook values are about 3080, 2226 and 3050 K (`tests/test_physics.py`).
+**Check:** stoichiometric H₂/O₂ at 1 atm gives 3077 K, CH₄/air 2225 K and CH₄/O₂ 3052 K. Textbook values are about 3080, 2226 and 3050 K (`tests/test_physics.py`). For the hybrid propellants, NASA CEA runs of paraffin with N₂O (O/F 7) and with O₂ (stoichiometric) at 100 bar give chamber temperatures of 3421 and 3791 K. The model gets 3423 and 3793 K, molar masses within 0.03% and c* within 0.04% (`test_paraffin_combustion_matches_nasa_cea`).
 
 ---
 
