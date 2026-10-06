@@ -8,7 +8,7 @@ uses for its rocket problem, solved here with Cantera's NASA thermo database.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from functools import lru_cache
+from functools import cache
 
 import cantera as ct
 import numpy as np
@@ -60,12 +60,12 @@ PARAFFIN_MOLAR_MASS = (32 * 12.011 + 66 * 1.008) / 1000.0
 PARAFFIN = Reactant("paraffin", {"C": 32, "H": 66}, dhf_kj_mol=-2.0e3 * PARAFFIN_MOLAR_MASS)
 
 
-@lru_cache(maxsize=None)
+@cache
 def _nasa_species() -> dict[str, ct.Species]:
     return {sp.name: sp for f in ("nasa_gas.yaml", "nasa_condensed.yaml") for sp in ct.Species.list_from_file(f)}
 
 
-@lru_cache(maxsize=None)
+@cache
 def _products_phase(elements: tuple[str, ...]) -> ct.Solution:
     """Ideal-gas phase with every neutral NASA species made only of ``elements``."""
     allowed = set(elements)
@@ -248,7 +248,7 @@ MGO = Reactant("MgO(cr)", {"Mg": 1, "O": 1}, dhf_kj_mol=-143785.851 * 4.184e-3)
 WATER_LIQUID = Reactant("H2O(L)", {"H": 2, "O": 1}, cantera_species="H2O(L)")
 
 
-@lru_cache(maxsize=None)
+@cache
 def _condensed_phases(elements: tuple[str, ...]) -> tuple[tuple[float, float, ct.Solution], ...]:
     """Every NASA condensed species made only of ``elements``, as (T_min, T_max, phase).
 
@@ -326,7 +326,9 @@ class Equilibrium:
         no single temperature hits it: the temperature holds while the phases trade
         places. The state is then a lever-rule mix of the two sides.
         """
-        f = lambda T: getattr(self.tp(T, P), prop) - target  # noqa: E731
+        def f(T):
+            return getattr(self.tp(T, P), prop) - target
+
         lo, hi = 0.9 * guess, 1.1 * guess
         while f(lo) > 0:
             lo *= 0.9
@@ -339,7 +341,10 @@ class Equilibrium:
             return st
         a, c = self.tp(T - 0.01, P), self.tp(T + 0.01, P)  # the two sides of the transition
         w = (target - getattr(a, prop)) / (getattr(c, prop) - getattr(a, prop))
-        mix = lambda u, v: (1 - w) * u + w * v  # noqa: E731
+
+        def mix(u, v):
+            return (1 - w) * u + w * v
+
         cond = {k: mix(a.condensed.get(k, 0.0), c.condensed.get(k, 0.0)) for k in set(a.condensed) | set(c.condensed)}
         return MultiphaseState(T, P, mix(a.h, c.h), mix(a.s, c.s), 1.0 / mix(1 / a.rho, 1 / c.rho), cond)
 

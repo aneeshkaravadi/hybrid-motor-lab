@@ -17,7 +17,7 @@ import cantera as ct
 import numpy as np
 from scipy.optimize import fsolve
 
-from .thermo import Reactant, element_moles, _products_phase
+from .thermo import Reactant, _products_phase, element_moles
 
 
 @dataclass
@@ -82,7 +82,7 @@ def cj_state(reactants: list[tuple[Reactant, float]], T1: float = 298.15, P1: fl
         energy = (h1 + 0.5 * w1**2) - (h2 + 0.5 * u2**2)
         return [mom / (rho1 * w1**2), energy / (0.5 * w1**2)]
 
-    sol, info, ier, msg = fsolve(residual, [3.0, 18.0], full_output=True, xtol=1e-10)
+    sol, _, ier, msg = fsolve(residual, [3.0, 18.0], full_output=True, xtol=1e-10)
     if ier != 1:
         raise RuntimeError(f"CJ solve failed: {msg}")
     T2, P2 = sol[0] * 1000.0, sol[1] * P1
@@ -107,7 +107,7 @@ class OneGamma:
         return self.gamma * self.R / (self.gamma - 1.0)
 
     @classmethod
-    def from_cj(cls, cj: CJResult, R: float, gamma: float | None = None) -> "OneGamma":
+    def from_cj(cls, cj: CJResult, R: float, gamma: float | None = None) -> OneGamma:
         g = cj.gamma2 if gamma is None else gamma
         c1 = np.sqrt(g * R * cj.T1)
         M = cj.D / c1

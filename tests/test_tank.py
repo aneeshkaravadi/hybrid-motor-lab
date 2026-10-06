@@ -2,9 +2,10 @@
 import numpy as np
 import pytest
 
-CP = pytest.importorskip("CoolProp.CoolProp")
+from hml import grain, hybrid, thermo
 
-from hml import grain, hybrid, tank, thermo  # noqa: E402
+CP = pytest.importorskip("CoolProp.CoolProp")
+tank = pytest.importorskip("hml.tank")  # needs CoolProp too
 
 V, M0, T0 = 0.005, 3.5, 293.15
 

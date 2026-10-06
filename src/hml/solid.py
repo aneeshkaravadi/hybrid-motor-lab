@@ -198,9 +198,11 @@ def simulate_erosive(segments: list[Segment], prop: SolidPropellant, throat_diam
         pc_hi = pc_lo
         while march(pc_hi, geo)[0] > pc_hi * At / prop.cstar:
             pc_hi *= 1.5
-        pc = pc_lo if not erosive else brentq(lambda p: march(p, geo)[0] - p * At / prop.cstar, pc_lo * (1 - 1e-9), pc_hi,
-                                                     xtol=1.0)
-        m, r0, rates, G_max, eta_max = march(pc, geo)
+        def balance(p, geo=geo):
+            return march(p, geo)[0] - p * At / prop.cstar
+
+        pc = brentq(balance, pc_lo * (1 - 1e-9), pc_hi, xtol=1.0) if erosive else pc_lo
+        _, r0, rates, G_max, eta_max = march(pc, geo)
         cf = thrust_coefficient(prop.gamma, area_ratio, pc, p_ambient)
         for k, v in zip(out, (t, pc, max(cf * pc * At, 0.0), pc * At / prop.cstar, Ab,
                               float(np.mean(np.concatenate(x))), np.concatenate(x), G_max, eta_max,

@@ -15,8 +15,8 @@ The chamber pressure solves  Pc = (m_dot_ox + m_dot_f) * eta_c* * c*(O/F, Pc) / 
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 import numpy as np
 
@@ -150,7 +150,7 @@ def total_flux_law(law: RegressionLaw, port: PortGeometry, length: float, mdot_o
     two models start the burn with the same fuel flow (the port is uniform at
     ignition, so the closed form above applies along the whole length).
     """
-    xs, A, P = port.curves(400)
+    _, A, P = port.curves(400)
     A0, P0, n = float(A[0]), float(P[0]), law.n
     mf = law.fuel_density * law.a * (mdot_ox / A0) ** n * P0 * length
     a = ((mdot_ox + mf) ** (1 - n) - mdot_ox ** (1 - n)) / ((1 - n) * law.fuel_density * P0 * A0 ** (-n) * length)

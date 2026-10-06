@@ -211,11 +211,11 @@ def simulate_blowdown(port: PortGeometry, length: float, law: RegressionLaw, tab
         st = tank.state()
         Ap, Pp = float(np.interp(x, xs, A)), float(np.interp(x, xs, P))
 
-        def flows(pc):
+        def flows(pc, st=st, Ap=Ap, Pp=Pp):
             mo = injector.mass_flow(st, pc)
             return mo, law.fuel_density * law.a * (mo / Ap) ** law.n * Pp * length
 
-        def residual(pc):
+        def residual(pc, flows=flows):
             mo, mf = flows(pc)
             if mo <= 0:
                 return pc
