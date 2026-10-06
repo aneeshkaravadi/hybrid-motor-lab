@@ -14,7 +14,8 @@ dependencies = ["numpy>=1.26", "scipy>=1.11", "matplotlib>=3.8", "cantera>=3.0",
 
 [project.optional-dependencies]
 cad = ["build123d>=0.8"]
-dev = ["pytest>=8"]
+tank = ["CoolProp>=6.6"]
+dev = ["pytest>=8", "CoolProp>=6.6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

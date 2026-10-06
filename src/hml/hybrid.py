@@ -46,6 +46,13 @@ class RegressionLaw:
 PARAFFIN_GOX = RegressionLaw.from_cgs("paraffin / GOX", 0.488, 0.62, 924.5,
                                       "Karabeyoglu et al., JPP 20(6), 2004")
 
+# Paraffin with nitrous oxide, in SI units (m/s, kg/m^2/s), as tabulated by
+# Jean-Philyppe (McGill Rocket Team, arXiv:2302.06725, Table 2.1) from
+# Genevieve's PhD thesis (UKZN, 2013). Treat it as a starting point: the same
+# report's own two hot fires fit quite different a and n.
+PARAFFIN_N2O = RegressionLaw("paraffin / N2O", 1.32e-4, 0.555, 900.0,
+                             "Genevieve 2013, via Jean-Philyppe, arXiv:2302.06725")
+
 
 @dataclass
 class HybridResult:
