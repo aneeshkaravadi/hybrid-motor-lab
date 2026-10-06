@@ -103,6 +103,45 @@ def test_hybrid_of_rises_for_n_above_half_and_remedies_flatten_it():
     assert thr.of_spread() < 1e-6 and grd.of_spread() < 1e-6
 
 
+def test_axial_fuel_flow_matches_an_ode_solve():
+    """The cell-by-cell closed form against a numerical solution of d(mdot)/dz = rho a (mdot/A)^n P."""
+    from scipy.integrate import solve_ivp
+    law = hybrid.PARAFFIN_GOX
+    A, P, L, mo = np.pi * 0.0175**2, 2 * np.pi * 0.0175, 0.4, 0.5
+    sol = solve_ivp(lambda z, m: law.fuel_density * law.a * (m / A) ** law.n * P, (0, L), [mo], rtol=1e-11, atol=1e-12,
+                    dense_output=True)
+    cells = 40
+    added = hybrid.fuel_added_per_cell(mo, np.full(cells, A), np.full(cells, P), np.full(cells, law.a), law, L / cells)
+    z_edges = np.linspace(0, L, cells + 1)[1:]
+    assert mo + np.cumsum(added) == pytest.approx(sol.sol(z_edges)[0], rel=1e-8)
+
+
+@pytest.fixture(scope="module")
+def small_table():
+    return thermo.build_table(thermo.O2, thermo.PARAFFIN, np.linspace(1.5, 3.5, 5), [1e6, 2e6, 3e6], 5.0)
+
+
+def test_axial_model_with_oxidizer_flux_is_the_averaged_model(small_table):
+    port, law = grain.tubular(0.1, 0.035), hybrid.PARAFFIN_GOX
+    avg = hybrid.simulate(port, 0.4, law, small_table, 0.5, 0.03, 4.0, dt=0.02)
+    ax = hybrid.simulate_axial(port, 0.4, law, small_table, 0.5, 0.03, 4.0, dt=0.02, flux="oxidizer")
+    assert ax.of == pytest.approx(avg.of, rel=1e-9)
+    assert ax.fuel_mass == pytest.approx(avg.fuel_mass, rel=1e-9)
+
+
+def test_axial_regression_conserves_fuel_and_opens_the_aft_end_faster(small_table):
+    port, law, L, mo = grain.tubular(0.1, 0.035), hybrid.PARAFFIN_GOX, 0.4, 0.5
+    tl = hybrid.total_flux_law(law, port, L, mo)
+    avg = hybrid.simulate(port, L, law, small_table, mo, 0.03, 6.0, dt=0.02)
+    ax = hybrid.simulate_axial(port, L, tl, small_table, mo, 0.03, 6.0, dt=0.02)
+    assert ax.mdot_fuel[0] == pytest.approx(avg.mdot_fuel[0], rel=1e-9)  # same fuel flow at ignition
+    assert ax.web_z[-1, -1] > 1.1 * ax.web_z[-1, 0]  # aft end ahead of the head end
+    # fuel burned so far equals the volume the port has grown by (to the last recorded state)
+    xs, A, _ = port.curves(400)
+    grown = law.fuel_density * np.sum(np.interp(ax.web_z[-1], xs, A) - A[0]) * L / len(ax.z)
+    assert grown == pytest.approx(ax.fuel_mass - ax.mdot_fuel[-1] * 0.02, rel=2e-3)
+
+
 def test_regression_unit_conversion():
     # 0.488 mm/s at G = 1 g/cm^2/s = 10 kg/m^2/s
     law = hybrid.PARAFFIN_GOX

@@ -15,7 +15,7 @@ The chamber pressure solves  Pc = (m_dot_ox + m_dot_f) * eta_c* * c*(O/F, Pc) / 
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 
 import numpy as np
@@ -111,6 +111,105 @@ def simulate(port: PortGeometry, length: float, law: RegressionLaw, table: Perfo
         t += dt
     return HybridResult(np.array(out["t"]), np.array(out["pc"]), np.array(out["F"]), np.array(out["of"]),
                         np.array(out["mf"]), np.array(out["g"]), np.array(out["x"]), fuel, ox_total)
+
+
+# ---------------------------------------------------------------- regression along the port
+#
+# The averaged law above uses one G_ox for the whole grain. Really, every bit of
+# fuel that burns near the head end flows down the port too, so the mass flux,
+# and with it the regression rate, grows toward the aft end. Marching along the
+# port with the total flux G = mdot(z) / A(z):
+#
+#   d(mdot)/dz = rho_f a (mdot / A)^n P
+#
+# Inside one axial cell A and P are constant, so this integrates exactly:
+#
+#   mdot_out^(1-n) = mdot_in^(1-n) + (1-n) rho_f a P A^(-n) dz
+#
+# and down the whole port mdot^(1-n) is just a cumulative sum.
+
+@dataclass
+class AxialHybridResult(HybridResult):
+    z: np.ndarray = field(default_factory=lambda: np.zeros(0))  # cell centers, m from the head end
+    web_z: np.ndarray = field(default_factory=lambda: np.zeros((0, 0)))  # web burned, shape (time, cell)
+    burn_through_time: float | None = None  # when the aft end first reached the casing, if it did
+
+
+def total_flux_law(law: RegressionLaw, port: PortGeometry, length: float, mdot_ox: float) -> RegressionLaw:
+    """Total-flux coefficient that gives the same fuel flow at ignition as ``law``.
+
+    Published laws like PARAFFIN_GOX are fits against the space-averaged oxidizer
+    flux. A total-flux law with the same n needs a smaller a, chosen here so the
+    two models start the burn with the same fuel flow (the port is uniform at
+    ignition, so the closed form above applies along the whole length).
+    """
+    xs, A, P = port.curves(400)
+    A0, P0, n = float(A[0]), float(P[0]), law.n
+    mf = law.fuel_density * law.a * (mdot_ox / A0) ** n * P0 * length
+    a = ((mdot_ox + mf) ** (1 - n) - mdot_ox ** (1 - n)) / ((1 - n) * law.fuel_density * P0 * A0 ** (-n) * length)
+    return RegressionLaw(f"{law.name} (total flux)", a, n, law.fuel_density, law.source)
+
+
+def fuel_added_per_cell(mdot_ox: float, A: np.ndarray, P: np.ndarray, a: np.ndarray, law: RegressionLaw,
+                        dz: float, flux: str = "total") -> np.ndarray:
+    """Fuel mass flow added in each axial cell, head end first, for port areas A and perimeters P."""
+    n, rho = law.n, law.fuel_density
+    if flux == "oxidizer":  # the averaged law applied locally: no feedback from upstream fuel
+        return rho * a * (mdot_ox / A) ** n * P * dz
+    if flux != "total":
+        raise ValueError(f"flux must be 'total' or 'oxidizer', not {flux!r}")
+    m = (mdot_ox ** (1 - n) + np.cumsum((1 - n) * rho * a * P * A ** (-n) * dz)) ** (1 / (1 - n))
+    return np.diff(np.r_[mdot_ox, m])
+
+
+def simulate_axial(port: PortGeometry, length: float, law: RegressionLaw, table: PerformanceTable,
+                   mdot_ox: float | Callable[[float], float], throat_diameter: float, burn_time: float,
+                   p_ambient: float = 101325.0, eta_cstar: float = 0.95, dt: float = 0.01, cells: int = 40,
+                   flux: str = "total", a_scale: Callable[[float], float] | None = None) -> AxialHybridResult:
+    """Like ``simulate``, but each of ``cells`` axial slices of the grain regresses at its own rate.
+
+    With ``flux="total"`` the regression follows the local total mass flux (use a
+    law from ``total_flux_law``). With ``flux="oxidizer"`` every slice sees the
+    same oxidizer flux, which reproduces ``simulate`` exactly. A throttle
+    schedule ``mdot_ox(x)`` and ``a_scale(x)`` are evaluated at the mean web.
+    The burn stops early if the aft end reaches the casing.
+    """
+    At = np.pi * throat_diameter**2 / 4
+    xs, A_of_x, P_of_x = port.curves(400)
+    ox = mdot_ox if callable(mdot_ox) else (lambda _x, m=mdot_ox: m)
+    dz = length / cells
+    z = (np.arange(cells) + 0.5) * dz
+    x = np.zeros(cells)
+    t, pc = 0.0, 2e6
+    out = {k: [] for k in ("t", "pc", "F", "of", "mf", "g", "x", "xz")}
+    fuel = ox_total = 0.0
+    burn_through = None
+    while t < burn_time:
+        if x.max() >= xs[-1]:
+            burn_through = t
+            break
+        A, P = np.interp(x, xs, A_of_x), np.interp(x, xs, P_of_x)
+        mo = ox(float(x.mean()))
+        a = law.a * (np.array([a_scale(v) for v in x]) if a_scale else np.ones(cells))
+        added = fuel_added_per_cell(mo, A, P, a, law, dz, flux)
+        mf = float(added.sum())
+        of = mo / mf
+        for _ in range(20):  # fixed point on Pc, as in simulate()
+            cstar, cf_vac = table.lookup(of, pc)
+            pc_new = (mo + mf) * eta_cstar * cstar / At
+            if abs(pc_new - pc) < 1.0:
+                break
+            pc = pc_new
+        cf = cf_vac - p_ambient * table.area_ratio / pc
+        for k, v in zip(out, (t, pc, max(cf * pc * At, 0.0), of, mf, float(np.mean(mo / A)), float(x.mean()), x.copy())):
+            out[k].append(v)
+        fuel += mf * dt
+        ox_total += mo * dt
+        x = x + added / (law.fuel_density * P * dz) * dt  # each cell's regression rate
+        t += dt
+    return AxialHybridResult(np.array(out["t"]), np.array(out["pc"]), np.array(out["F"]), np.array(out["of"]),
+                             np.array(out["mf"]), np.array(out["g"]), np.array(out["x"]), fuel, ox_total,
+                             z, np.array(out["xz"]), burn_through)
 
 
 # ---------------------------------------------------------------- holding O/F constant
