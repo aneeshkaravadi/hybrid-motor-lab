@@ -193,7 +193,7 @@ def test_solid_mass_balance():
     segs = [grain.Segment(grain.tubular(0.054, 0.02), 0.07) for _ in range(4)]
     r = solid.simulate(segs, solid.EXAMPLE_APCP, 0.017, 6.0)
     burned = np.trapezoid(r.mdot, r.t)
-    assert burned == pytest.approx(r.propellant_mass, rel=0.03)
+    assert burned == pytest.approx(r.propellant_mass, rel=5e-3)  # the actual error is 0.13%
 
 
 def test_erosive_ratio_matches_mukunda_paul_by_hand():
@@ -229,7 +229,31 @@ def test_erosive_burning_raises_the_start_pressure_and_conserves_mass():
     head, aft = web[:40], web[120:]
     assert np.ptp(head) == pytest.approx(0.0, abs=1e-12)
     assert np.all(np.diff(aft) > 0) and aft[-1] > 1.05 * aft[0] > 1.05 * head[0]
-    assert np.trapezoid(ero.mdot, ero.t) == pytest.approx(ero.propellant_mass, rel=0.03)
+    assert np.trapezoid(ero.mdot, ero.t) == pytest.approx(ero.propellant_mass, rel=5e-3)
+
+
+def test_port_mach_and_head_end_pressure_match_the_conservation_laws():
+    """The port diagnostics against a dimensional solve of a constant-area port fed from its wall.
+
+    Gas made at the wall enters with the chamber's stagnation enthalpy and no axial momentum, so between the
+    head end (at rest, pressure p_h) and a station carrying mass flux G:
+        momentum  p + G u = p_h,   energy  cp T + u^2 / 2 = cp T0,   state  p = (G / u) R T.
+    Solving those for u gives the station's Mach number and stagnation pressure, and the throat flux for the
+    same stagnation state comes straight from the sonic conditions. None of it uses the area-Mach relation.
+    """
+    from scipy.optimize import brentq
+    gamma, R, T0, p_h = 1.2, 300.0, 3000.0, 3.0e6
+    cp = gamma * R / (gamma - 1)
+    u_sonic = np.sqrt(gamma * R * 2 * T0 / (gamma + 1))  # this port chokes at G = 1652 kg/m^2/s
+    for G in (500.0, 1000.0, 1500.0):
+        u = brentq(lambda u, G=G: p_h - G * u - G * R * (T0 - u**2 / (2 * cp)) / u, 1.0, u_sonic)
+        T = T0 - u**2 / (2 * cp)
+        M = u / np.sqrt(gamma * R * T)
+        p0 = (p_h - G * u) * (T0 / T) ** (gamma / (gamma - 1))
+        T_star = 2 * T0 / (gamma + 1)
+        G_star = p0 * (T_star / T0) ** (gamma / (gamma - 1)) / (R * T_star) * np.sqrt(gamma * R * T_star)
+        assert solid.subsonic_mach_from_flux_ratio(G / G_star, gamma) == pytest.approx(M, rel=1e-6)
+        assert solid.head_end_pressure_ratio(M, gamma) == pytest.approx(p_h / p0, rel=1e-9)
 
 
 def test_erosive_model_flags_a_port_that_would_choke():

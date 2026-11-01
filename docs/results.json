@@ -36,6 +36,27 @@
     ],
     "bates_peak_rate_ratio": 1.5,
     "bates_port_flux_over_throat": 0.72,
+    "bates_port_mach_at_ignition": 0.486,
+    "bates_head_end_p0_MPa": 2.75,
+    "bates_nozzle_end_static_over_pc": 0.869,
+    "bates_sensitivity": {
+      "K1_0.023_mu_8e-5 (default)": {
+        "p0_rise_pct": 13.7,
+        "peak_rate_ratio": 1.5
+      },
+      "K1_0.018 (mean fit)": {
+        "p0_rise_pct": 10.5,
+        "peak_rate_ratio": 1.38
+      },
+      "viscosity_x0.5": {
+        "p0_rise_pct": 11.2,
+        "peak_rate_ratio": 1.43
+      },
+      "viscosity_x2": {
+        "p0_rise_pct": 16.6,
+        "peak_rate_ratio": 1.57
+      }
+    },
     "sweep_port_to_throat": [
       1.12,
       1.38,
@@ -54,6 +75,15 @@
       2.4,
       1.3
     ],
+    "sweep_p0_rise_pct_mean_fit_K1": [
+      14.6,
+      10.5,
+      7.6,
+      5.2,
+      3.3,
+      1.9,
+      1.0
+    ],
     "sweep_pmax_rise_pct": [
       6.6,
       4.7,
@@ -62,6 +92,15 @@
       1.7,
       1.0,
       0.7
+    ],
+    "sweep_head_end_over_pc_pct": [
+      18.4,
+      11.6,
+      7.8,
+      5.4,
+      3.9,
+      2.9,
+      2.2
     ],
     "boost_first_port_flux_over_throat": 2.25,
     "boost_first_peak_port_flux": 6098,

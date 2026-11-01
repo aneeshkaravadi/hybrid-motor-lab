@@ -106,7 +106,7 @@ $$\Rightarrow\quad P_c = \left(\frac{\rho_p\, a\, A_b\, c^*}{A_t}\right)^{\frac{
 
 The simulation steps in web distance (not time) and converts with $dt = dx / \dot r$, so fast and slow phases are resolved equally.
 
-**Check:** integrated $\dot m\,dt$ equals the propellant mass loaded, within 3% (`test_solid_mass_balance`).
+**Check:** integrated $\dot m\,dt$ equals the propellant mass loaded, within 0.5% (`test_solid_mass_balance`; the actual error is 0.13%). That is conservation, not an outside reference.
 
 ### Erosive burning (`solid.simulate_erosive`)
 
@@ -116,13 +116,23 @@ $$g_0 = \frac{G}{\rho_p r_0}, \qquad Re_0 = \frac{\rho_p r_0 d}{\mu}, \qquad g =
 
 where $r_0 = aP_c^n$ is the pressure-only rate, $G$ the mass flux in the port, $d$ the port's hydraulic diameter $4A/P$, and $\mu$ the gas viscosity. $g_0$ compares the flow along the surface with the flow leaving it. Their Eq. 12 is
 
-$$\frac{r}{r_0} = 1 + 0.023\left(g^{0.8} - g_{th}^{0.8}\right) \quad \text{for } g > g_{th} = 35, \qquad \text{else } 1$$
+$$\frac{r}{r_0} = 1 + K_1\left(g^{0.8} - g_{th}^{0.8}\right) \quad \text{for } g > g_{th} = 35, \qquad \text{else } 1$$
+
+**Which $K_1$.** The mean line through all their data (390 points, plus 60 standing in for the laws that two other groups published) has $K_1 = 0.018$, with 373 of the 450 points inside a ±15% band (their Sec. 3.8). To reproduce Nagaoka et al.'s measured head-end pressure traces with a 1-D, time-dependent port-flow model, they had to raise it to 0.023, which they say still sits within the scatter but toward its upper bound, and that is the value they recommend as Eq. 12 (Sec. 3.9). The code defaults to 0.023 (`solid.MUKUNDA_PAUL_K1`) and the figure script also runs 0.018, so the README gives a range rather than one number. The viscosity is an estimate too, so it is varied by a factor of 2 each way.
 
 **Solving it.** Each segment is split into axial cells, each with its own web, port area $A_j$ and perimeter $P_j$ from the burn-back curves. For a trial $P_c$, march from the closed head end. The flow arriving at cell $j$ is everything made upstream, so $G_j = \dot m_{j-1}/A_j$. That sets $r_j = r_0\,\eta(g_j)$, and the cell adds $\rho_p r_j P_j \Delta z$ to the flow. End faces add gas where they sit and burn at $r_0$, since the flow passes them rather than along them. A root solve finds the $P_c$ where the total equals $P_c A_t/c^*$. Each cell then burns back by $r_j\,\Delta t$, with $\Delta t$ set so the fastest cell moves 0.1 mm.
 
-**When the port chokes.** The most mass flux any section can pass is about what the throat passes, $P_c/c^*$, since it's the same gas from the same chamber. If the march asks for more than that somewhere in the port, the port itself chokes, the pressure along the port is far from uniform, and a 0-D chamber model doesn't apply. The result reports that ratio (`port_choke_ratio`).
+**How far the uniform pressure can be trusted.** The march uses one chamber pressure everywhere, but gas speeding up along a narrow port loses static pressure on the way. The ratio the result reports, $f = G_\text{port}/(P_c/c^*)$ (`port_choke_ratio`), is the port's peak mass flux over the throat's. For the same stagnation state that ratio is $A^*/A$ in isentropic flow, so inverting the area-Mach relation on its subsonic branch gives the port Mach number $M$ there (`port_mach`). Taking $P_c$ as the stagnation pressure where the gas enters the nozzle, the static pressure there is
 
-**Checks:** the correlation by hand. With erosion off, the cell model reproduces the closed form exactly for BATES (whose cells burn away from the ends) and star grains. With erosion on, mass still balances within 3%, the head-end grain of a BATES stack doesn't erode while the nozzle-end one burns faster toward the nozzle, and a port narrower than the throat gets flagged (`tests/test_physics.py`).
+$$p_\text{aft} = P_c\left(1 + \tfrac{\gamma-1}{2}M^2\right)^{-\gamma/(\gamma-1)}$$
+
+In a port of constant area, gas leaving the wall carries no axial momentum, so with no friction the momentum balance $d(pA + \dot m u) = 0$ keeps $p + \rho u^2 = p\,(1 + \gamma M^2)$ the same all along the port. The head end is at rest, so
+
+$$\frac{p_\text{head}}{P_c} = \frac{1 + \gamma M^2}{\left(1 + \tfrac{\gamma-1}{2}M^2\right)^{\gamma/(\gamma-1)}}$$
+
+(`head_end_pc`; a test checks both against a dimensional solve of the mass, momentum and energy balances that never uses the area-Mach relation). At ignition all the gas flows out of the last grain's core, so $f$ is about the throat-to-port area ratio. For $\gamma = 1.2$, a port twice the throat area gives $f = 0.5$, $M = 0.31$, and a head end 5% above $P_c$. At 1.4 times the throat (the README's BATES case, $f = 0.72$ at ignition), $M = 0.48$, the head end sits 11.5% above $P_c$ and the nozzle end's static pressure 13% below it. That spread is as large as the erosive effect itself, so the 0-D numbers there are a first estimate. A real answer needs the pressure solved along the port, the way Mukunda and Paul did it. If $f$ reaches 1 the port itself chokes and the model doesn't apply at all.
+
+**Checks:** the correlation by hand (which only checks the transcription). With erosion off, the cell model reproduces the closed form exactly for BATES (whose cells burn away from the ends) and star grains. With erosion on, mass still balances within 0.5% (the actual error is 0.2%), the head-end grain of a BATES stack doesn't erode while the nozzle-end one burns faster toward the nozzle, and a port narrower than the throat gets flagged (`tests/test_physics.py`).
 
 ---
 
@@ -286,7 +296,7 @@ The Bézier control point $Q$ is where the tangent lines at $N$ (slope $\tan\the
 
 ## What the models leave out (say this before someone else does)
 
-- **Ballistics:** ignition and tail-off transients, two-phase flow losses, nozzle erosion, and heat loss to the walls. Erosive burning is an empirical correlation with an estimated gas viscosity. End faces burn at the pressure-only rate, and the pressure is taken as uniform along the port, which holds unless the port nears choking (flagged).
+- **Ballistics:** ignition and tail-off transients, two-phase flow losses, nozzle erosion, and heat loss to the walls. Erosive burning is an empirical correlation with an estimated gas viscosity, and its coefficient was tuned with a 1-D port model, not a 0-D one. End faces burn at the pressure-only rate, and the pressure is taken as uniform along the port. The result reports the port Mach number and head-end pressure that implies, and above a port flux of about half the throat's the two ends differ by more than 5%.
 - **Hybrids:** `simulate_axial` resolves the flux along the port, but its total-flux coefficient is matched to the averaged law at ignition rather than fit to data. The nitrous tank is adiabatic and always in equilibrium. Real tanks lag behind equilibrium, and the walls give heat back to the cooling liquid. The burn also stops when the liquid runs out instead of burning the vapor left behind.
 - **Thermochemistry:** the hybrid tables are gas-only, so on the fuel-rich side (O/F 1.2 and below for GOX/paraffin) they miss the graphite that CEA says condenses (section 1). `PerformanceTable.lookup` also clamps O/F and pressure to the table's edges without saying so: the shaped-port hybrids start below O/F 1.0, so their first second or so is read at O/F 1.0. The nitrous table is built for liquid N₂O at 20 °C, while the tank cools to about 0 °C during the burn. Condensed products stay in equilibrium with the gas, and the droplets are assumed to keep up with it in speed and temperature, so aluminized $I_{sp}$ is an upper bound. Real motors lose a few percent to particle lag. The paraffin heat of formation is uncertain, but a test shows it moves c* by less than 1%.
 - **Detonation:** the one-gamma cycle analysis is an idealization. Real RDEs run 10–20% below CJ speed, and the sizing depends on an empirical cell size.

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from pathlib import Path
 
 import matplotlib
@@ -114,20 +115,39 @@ def erosive(results):
     axes[1].set_ylabel("burn rate / pressure-only rate")
     axes[1].set_title("only the grains near the nozzle erode")
     axes[1].legend(fontsize=8)
+    # Core size sweep, with Mukunda & Paul's recommended K1 = 0.023 and with their mean fit, 0.018.
     sweep_ero = []
     for dc in (0.018, 0.020, 0.022, 0.024, 0.026, 0.028, 0.030):
         segs = [grain.Segment(grain.tubular(0.054, dc), 0.07) for _ in range(4)]
-        a, b = solid.simulate(segs, prop, 0.017, 6.0), solid.simulate_erosive(segs, prop, 0.017, 6.0)
-        sweep_ero.append(((dc / 0.017) ** 2, 100 * (b.pc[0] / a.pc[0] - 1), 100 * (b.max_pressure / a.max_pressure - 1)))
+        a = solid.simulate(segs, prop, 0.017, 6.0)
+        b = solid.simulate_erosive(segs, prop, 0.017, 6.0)
+        c = solid.simulate_erosive(segs, prop, 0.017, 6.0, erosive_coefficient=solid.MUKUNDA_PAUL_K1_MEAN_FIT)
+        sweep_ero.append(((dc / 0.017) ** 2, 100 * (b.pc[0] / a.pc[0] - 1), 100 * (b.max_pressure / a.max_pressure - 1),
+                          100 * (c.pc[0] / a.pc[0] - 1), 100 * (b.head_end_pc[0] / b.pc[0] - 1)))
     sweep_ero = np.array(sweep_ero)
-    axes[2].plot(sweep_ero[:, 0], sweep_ero[:, 1], "o-", label="pressure at ignition")
-    axes[2].plot(sweep_ero[:, 0], sweep_ero[:, 2], "s-", label="peak pressure")
+    axes[2].plot(sweep_ero[:, 0], sweep_ero[:, 1], "o-", color="C0", label="pressure at ignition (K1 = 0.023)")
+    axes[2].plot(sweep_ero[:, 0], sweep_ero[:, 3], "o--", color="C0", mfc="none", label="same, mean-fit K1 = 0.018")
+    axes[2].plot(sweep_ero[:, 0], sweep_ero[:, 2], "s-", color="C1", label="peak pressure (K1 = 0.023)")
+    axes[2].plot(sweep_ero[:, 0], sweep_ero[:, 4], ":", color="k",
+                 label="head end above nozzle end at ignition\n(what the 0-D model leaves out)")
     axes[2].set_xlabel("port-to-throat area ratio (core diameter 18-30 mm)")
-    axes[2].set_ylabel("rise from erosive burning (%)")
+    axes[2].set_ylabel("percent")
     axes[2].set_title("why ports should be 2x the throat")
-    axes[2].legend(fontsize=8)
+    axes[2].legend(fontsize=7)
     fig.suptitle("Erosive burning (Mukunda & Paul's correlation): gas from upstream scours the grains near the nozzle")
     save(fig, "erosive_burning.png")
+
+    # How much the README's BATES numbers depend on the correlation's coefficient and the guessed viscosity.
+    def rise(r):
+        return {"p0_rise_pct": round(100 * (float(r.pc[0]) / float(plain.pc[0]) - 1), 1),
+                "peak_rate_ratio": round(float(r.peak_ratio[0]), 2)}
+
+    sensitivity = {"K1_0.023_mu_8e-5 (default)": rise(ero),
+                   "K1_0.018 (mean fit)": rise(solid.simulate_erosive(
+                       bates, prop, 0.017, 6.0, erosive_coefficient=solid.MUKUNDA_PAUL_K1_MEAN_FIT))}
+    for f in (0.5, 2.0):
+        sensitivity[f"viscosity_x{f:g}"] = rise(solid.simulate_erosive(
+            bates, replace(prop, viscosity=prop.viscosity * f), 0.017, 6.0))
     boost_first = [cases["finocyl boost + tubular sustain"][1], cases["finocyl boost + tubular sustain"][0]]
     choked = solid.simulate_erosive(boost_first, prop, 0.015, 6.0)
     results["erosive"] = {
@@ -135,9 +155,16 @@ def erosive(results):
         "bates_pmax_MPa": [round(plain.max_pressure / 1e6, 2), round(ero.max_pressure / 1e6, 2)],
         "bates_peak_rate_ratio": round(float(ero.peak_ratio[0]), 2),
         "bates_port_flux_over_throat": round(float(ero.port_choke_ratio.max()), 2),
+        "bates_port_mach_at_ignition": round(float(ero.port_mach[0]), 3),
+        "bates_head_end_p0_MPa": round(float(ero.head_end_pc[0]) / 1e6, 2),
+        "bates_nozzle_end_static_over_pc": round(float((1 + (prop.gamma - 1) / 2 * ero.port_mach[0] ** 2)
+                                                       ** (-prop.gamma / (prop.gamma - 1))), 3),
+        "bates_sensitivity": sensitivity,
         "sweep_port_to_throat": [round(v, 2) for v in sweep_ero[:, 0]],
         "sweep_p0_rise_pct": [round(v, 1) for v in sweep_ero[:, 1]],
+        "sweep_p0_rise_pct_mean_fit_K1": [round(v, 1) for v in sweep_ero[:, 3]],
         "sweep_pmax_rise_pct": [round(v, 1) for v in sweep_ero[:, 2]],
+        "sweep_head_end_over_pc_pct": [round(v, 1) for v in sweep_ero[:, 4]],
         "boost_first_port_flux_over_throat": round(float(choked.port_choke_ratio[0]), 2),
         "boost_first_peak_port_flux": round(float(choked.peak_flux[0])),
         "throat_flux_at_ignition": round(float(choked.pc[0]) / prop.cstar),

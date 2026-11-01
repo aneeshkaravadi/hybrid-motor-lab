@@ -14,14 +14,22 @@ adds erosive burning: gas flowing fast along the port scours the burning
 surface and makes it burn faster, most at the nozzle end where all the gas from
 upstream is flowing past. It uses Mukunda & Paul's correlation ("Universal
 behaviour in erosive burning of solid propellants", Combustion and Flame 109,
-1997, Eq. 12), which they fit to about 450 data points across composite and
-double-base propellants:
+1997, Eq. 12):
 
-    r / r0 = 1 + 0.023 (g^0.8 - g_th^0.8)   for g > g_th = 35, else 1
+    r / r0 = 1 + K1 (g^0.8 - g_th^0.8)   for g > g_th = 35, else 1
     g  = g0 (Re0 / 1000)^-0.125,   g0 = G / (rho_p r0),   Re0 = rho_p r0 d / mu
 
 where r0 = a Pc^n is the non-erosive rate, G the mass flux in the port, d the
-port's hydraulic diameter and mu the gas viscosity.
+port's hydraulic diameter and mu the gas viscosity. The mean line through their
+roughly 450 data points has K1 = 0.018 (their Sec. 3.8). They raised it to 0.023
+so a 1-D port-flow model matched Nagaoka et al.'s measured head-end pressure
+traces, said that value lies toward the upper bound of the data, and recommend
+it as Eq. 12 (Sec. 3.9). The default here is 0.023; pass 0.018 to see the spread.
+
+The 0-D model takes one pressure for the whole chamber. With a narrow port the
+gas reaches a real Mach number on its way to the nozzle and the static pressure
+falls along the port, which the result reports (``port_mach``, ``head_end_pc``)
+rather than models.
 """
 from __future__ import annotations
 
@@ -106,13 +114,43 @@ def simulate(segments: list[Segment], prop: SolidPropellant, throat_diameter: fl
 
 # ---------------------------------------------------------------- erosive burning
 
-def erosive_ratio(G, r0: float, prop: SolidPropellant, hydraulic_diameter):
-    """Erosive burn-rate ratio r / r0 from Mukunda & Paul (1997), Eq. 12."""
+MUKUNDA_PAUL_K1 = 0.023  # Eq. 12, raised to match motor pressure traces ("toward the upper bound")
+MUKUNDA_PAUL_K1_MEAN_FIT = 0.018  # mean line through all their data (Sec. 3.8)
+
+
+def erosive_ratio(G, r0: float, prop: SolidPropellant, hydraulic_diameter, coefficient: float = MUKUNDA_PAUL_K1):
+    """Erosive burn-rate ratio r / r0 from Mukunda & Paul (1997), Eq. 12, with K1 = ``coefficient``."""
     G, d = np.asarray(G, float), np.asarray(hydraulic_diameter, float)
     g0 = G / (prop.density * r0)
     re0 = prop.density * r0 * d / prop.viscosity
     g = g0 * (re0 / 1000.0) ** -0.125
-    return np.where(g > 35.0, 1.0 + 0.023 * (np.maximum(g, 35.0) ** 0.8 - 35.0**0.8), 1.0)
+    return np.where(g > 35.0, 1.0 + coefficient * (np.maximum(g, 35.0) ** 0.8 - 35.0**0.8), 1.0)
+
+
+def subsonic_mach_from_flux_ratio(flux_ratio, gamma: float):
+    """Mach number of a section that passes ``flux_ratio`` times the throat's mass flux at the same stagnation state.
+
+    That ratio is A*/A in isentropic flow, so this inverts the area-Mach relation on its subsonic branch.
+    """
+    from scipy.optimize import brentq
+
+    def area_ratio(M):
+        return ((2 / (gamma + 1)) * (1 + (gamma - 1) / 2 * M**2)) ** ((gamma + 1) / (2 * (gamma - 1))) / M
+
+    out = [brentq(lambda M, f=f: 1.0 / area_ratio(M) - f, 1e-9, 1.0) if 0 < f < 1 else (1.0 if f >= 1 else 0.0)
+           for f in np.atleast_1d(np.asarray(flux_ratio, float))]
+    return np.array(out) if np.ndim(flux_ratio) else out[0]
+
+
+def head_end_pressure_ratio(port_mach, gamma: float):
+    """Head-end pressure over the nozzle-end stagnation pressure, for a constant-area port.
+
+    Gas leaves the burning wall with no axial momentum, so with no friction p + rho u^2 = p (1 + gamma M^2)
+    is the same all along the port. The head end is at rest (M = 0), and at the aft end the static pressure
+    is the stagnation pressure times the isentropic ratio.
+    """
+    M = np.asarray(port_mach, float)
+    return (1 + gamma * M**2) * (1 + (gamma - 1) / 2 * M**2) ** (-gamma / (gamma - 1))
 
 
 @dataclass
@@ -124,11 +162,16 @@ class ErosiveResult(SolidResult):
     # Peak port mass flux over the throat's, Pc / c*. Above 1 the port itself would
     # choke, the pressure along the port is far from uniform, and the model doesn't apply.
     port_choke_ratio: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    # What that flux means for the uniform-pressure assumption: the Mach number where the port flux peaks,
+    # and the head-end pressure that implies for a constant-area port (pc is the nozzle-end stagnation
+    # pressure). Above a flux ratio of about 0.5 the two ends differ by more than 5%.
+    port_mach: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    head_end_pc: np.ndarray = field(default_factory=lambda: np.zeros(0))
 
 
 def simulate_erosive(segments: list[Segment], prop: SolidPropellant, throat_diameter: float, area_ratio: float,
                      p_ambient: float = 101325.0, dx: float = 1e-4, cells_per_segment: int = 40,
-                     erosive: bool = True) -> ErosiveResult:
+                     erosive: bool = True, erosive_coefficient: float = MUKUNDA_PAUL_K1) -> ErosiveResult:
     """Like ``simulate``, but each segment is split into axial cells that burn back at their own rate.
 
     At each step the chamber pressure is solved so the gas made along the whole
@@ -136,6 +179,7 @@ def simulate_erosive(segments: list[Segment], prop: SolidPropellant, throat_diam
     upstream of it) equals the nozzle flow. End faces burn at the non-erosive
     rate. With ``erosive=False`` every cell burns at r0, which reproduces
     ``simulate``. Each step burns at most ``dx`` of web in the fastest cell.
+    ``erosive_coefficient`` is Mukunda & Paul's K1.
     """
     At = np.pi * throat_diameter**2 / 4
     curves = [s.port.curves(300) for s in segments]
@@ -179,7 +223,8 @@ def simulate_erosive(segments: list[Segment], prop: SolidPropellant, throat_diam
             r = np.empty(cells_per_segment)
             for j in range(cells_per_segment):
                 G = m / Ap[j]
-                eta = float(erosive_ratio(G, r0, prop, 4 * Ap[j] / max(Pp[j], 1e-12))) if erosive else 1.0
+                eta = (float(erosive_ratio(G, r0, prop, 4 * Ap[j] / max(Pp[j], 1e-12), erosive_coefficient))
+                       if erosive else 1.0)
                 r[j] = r0 * eta
                 m += prop.density * r[j] * Pp[j] * active[j]
                 if active[j] > 0 and Pp[j] > 0:
@@ -216,6 +261,9 @@ def simulate_erosive(segments: list[Segment], prop: SolidPropellant, throat_diam
         t += dt
     mass = sum(s.propellant_volume() for s in segments) * prop.density
     z = np.concatenate([zc[i] + sum(s.length for s in segments[:i]) for i in range(len(segments))])
+    choke = np.array(out["choke"])
+    mach = subsonic_mach_from_flux_ratio(choke, prop.gamma)
     return ErosiveResult(np.array(out["t"]), np.array(out["pc"]), np.array(out["F"]), np.array(out["mdot"]),
                          np.array(out["Ab"]), np.array(out["x"]), mass, z, np.array(out["xz"]),
-                         np.array(out["G"]), np.array(out["eta"]), np.array(out["choke"]))
+                         np.array(out["G"]), np.array(out["eta"]), choke, mach,
+                         np.array(out["pc"]) * head_end_pressure_ratio(mach, prop.gamma))
