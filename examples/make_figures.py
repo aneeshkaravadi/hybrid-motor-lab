@@ -247,7 +247,9 @@ def hybrid_gox(results):
         axes[1].plot(r.t, r.thrust, label=label)
         results["hybrid"][label] = {"of_start": round(float(r.of[0]), 2), "of_end": round(float(r.of[-1]), 2),
                                     "of_spread": round(r.of_spread(), 3), "impulse_Ns": round(r.total_impulse, 0),
-                                    "isp_s": round(r.isp, 1), "fuel_kg": round(r.fuel_mass, 2)}
+                                    "isp_s": round(r.isp, 1), "fuel_kg": round(r.fuel_mass, 2),
+                                    "web_burned_mm": round(float(r.web[-1]) * 1000, 1),
+                                    "web_to_casing_mm": round(port.web_to_casing() * 1000, 1)}
     axes[0].axhline(of_grid[i_best], color="k", ls=":", lw=1, label="peak-c* O/F at 2 MPa")
     axes[0].set_ylabel("O/F")
     axes[1].set_ylabel("thrust (N)")

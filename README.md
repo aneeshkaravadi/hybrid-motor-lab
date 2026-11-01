@@ -25,13 +25,13 @@ The math behind all of it is written out in [DERIVATIONS.md](DERIVATIONS.md).
 
 ## The result I didn't expect
 
-I assumed printed port shapes would let you hold a hybrid's O/F ratio steady through the burn, since that was the whole appeal. They don't, at least not for paraffin. Every star, finocyl and wagon wheel I tried front-loaded the fuel flow, which helped thrust a little (3 to 5% more impulse), but made the O/F swing much worse than a plain tube (70 to 88% instead of 21%).
+I assumed printed port shapes would let you hold a hybrid's O/F ratio steady through the burn, since that was the whole appeal. They don't, at least not for paraffin. Every star, finocyl and wagon wheel I tried front-loaded the fuel flow and made the O/F swing much worse than a plain tube (70 to 88% instead of 21%). They did give 3.5 to 5.4% more impulse, but only by burning 24 to 33% more fuel at a worse O/F (Isp of 226 to 233 s instead of 238.5). The star and the wagon wheel also end the 8 s burn within 1 mm of the casing, where the tube still has 9 mm of fuel left.
 
 ![O/F drift for four port shapes](docs/figures/hybrid_of_drift.png)
 
 It took me a while to see why. For any port that grows into a scaled copy of itself, O/F goes like $A^{n-1/2}$, and paraffin has $n = 0.62$, so O/F has to rise no matter what shape you start with. I ran a sweep of 20 star designs to be sure and none of them beat the tube.
 
-What does work is running the model backwards. To hold O/F flat you either throttle the oxidizer down over the burn (0.73 to 0.41 kg/s for my test case), or you print a fuel whose regression rate increases by about 24% from the port outward. That second one is a fuel grain you could only make by printing it.
+What does work is running the model backwards. To hold O/F flat you either throttle the oxidizer down over the burn (0.73 to 0.41 kg/s for my test case), or you print a fuel whose regression rate increases by about 24% from the port outward. That second one is the kind of graded grain printing makes practical, though you could get close by casting it in layers.
 
 ![O/F remedies](docs/figures/of_remedies.png)
 

@@ -188,6 +188,16 @@ def test_star_web_is_distance_from_valley_region_to_casing():
     assert s.port_mask.any() and s.web() > (0.075 / 2 - 0.025)
 
 
+def test_thinnest_wall_matches_the_geometry():
+    """The flame first reaches the casing at the star tips, or everywhere at once for a round core.
+
+    The grid cell here is 0.19 mm. The round core lands within a quarter of a cell; the star's sharp tips get
+    rounded off by the 0.5 coverage contour, so they sit up to a cell short.
+    """
+    assert grain.tubular(0.075, 0.025).web_to_casing() == pytest.approx((0.075 - 0.025) / 2, abs=5e-5)
+    assert grain.star(0.075, 6, 0.025, 0.012).web_to_casing() == pytest.approx(0.075 / 2 - 0.025, abs=2e-4)
+
+
 # ---------------------------------------------------------------- ballistics
 def test_solid_mass_balance():
     segs = [grain.Segment(grain.tubular(0.054, 0.02), 0.07) for _ in range(4)]

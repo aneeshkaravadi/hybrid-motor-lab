@@ -72,6 +72,7 @@ class PortGeometry:
             for p0, s, k in zip(ln[:-1], seg, steps):
                 pts.append(p0 + s * (np.arange(k)[:, None] / k))
         pts = np.vstack(pts)  # (x = column j, y = row i) in cell units
+        self._cache["boundary"] = (pts + 0.5) * self.dx - self.diameter / 2  # the same points in m from the axis
         jj, ii = np.meshgrid(np.arange(self.n), np.arange(self.n))
         dist, _ = cKDTree(pts).query(np.column_stack([jj.ravel(), ii.ravel()]), workers=workers)
         d = dist.reshape(self.n, self.n) * self.dx
@@ -82,6 +83,11 @@ class PortGeometry:
     def web(self) -> float:
         """Largest web distance before the flame reaches the casing everywhere."""
         return float(self.distance()[self.casing_mask].max())
+
+    def web_to_casing(self) -> float:
+        """Web burned when the flame first reaches the casing anywhere: the thinnest wall of fuel."""
+        self.distance()
+        return float(self.diameter / 2 - np.hypot(*self._cache["boundary"].T).max())
 
     def port_area(self) -> float:
         cov = self.coverage if self.coverage is not None else self.port_mask.astype(float)
