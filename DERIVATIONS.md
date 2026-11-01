@@ -268,15 +268,15 @@ These are ideal-cycle numbers. Real RDEs lose a lot to unsteady flow, mixing and
 
 ## 9. RDE geometry (`rde.bykovskii_sizing`)
 
-Rotating detonation waves need enough fresh mixture ahead of them. Bykovskii, Zhdan & Vedernikov (J. Propulsion & Power 22(6), 2006) correlated experiments in terms of the **detonation cell size** λ:
+Rotating detonation waves need enough fresh mixture ahead of them. Bykovskii, Zhdan & Vedernikov ("Continuous spin detonations", J. Propulsion & Power 22(6), 2006) correlated experiments in terms of the **detonation cell size** λ. I couldn't get the paper itself, so the last column says where I could check each number:
 
-| Quantity | Correlation |
-|---|---|
-| critical fill height | $h^* = (12 \pm 5)\,\lambda$ |
-| min channel width | $\approx 0.2\,h^*$ |
-| min chamber length | $\approx 2\,h^*$ |
-| min diameter | $\approx 40\,\lambda$ |
-| spacing between waves | $\ell = (7 \pm 2)\,h^*$ |
+| Quantity | Correlation | Checked against |
+|---|---|---|
+| critical fill height | $h^* = (12 \pm 5)\,\lambda$ | Braun, Lu & Wilson, AIAA 2010-7039, quoting Bykovskii |
+| min diameter | $\approx 40\,\lambda$ | same |
+| spacing between waves | $\ell = (7 \pm 2)\,h^*$ | Meng et al., [arXiv:2011.03187](https://arxiv.org/abs/2011.03187), who quote a range of 5 to 9 from Bykovskii |
+| min channel width | $\approx 0.2\,h^*$ | not checked |
+| min chamber length | $\approx 2\,h^*$ | not checked; Braun et al. quote an *optimum* length of about $4h$ |
 
 The number of waves is about $\pi d / \ell$, and wave frequency is $n\,D/(\pi d)$, using $D \approx 0.85\,D_{CJ}$ since real waves run slow.
 

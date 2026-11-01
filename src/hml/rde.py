@@ -162,7 +162,8 @@ def bykovskii_sizing(cell_size_mm: float, diameter_mm: float, D_cj: float, veloc
 
     Correlations (Bykovskii et al. 2006): critical fill height h* = (12 +/- 5) lambda,
     minimum channel width 0.2 h*, minimum length 2 h*, minimum diameter 40 lambda,
-    spacing between waves l = (7 +/- 2) h*.
+    spacing between waves l = (7 +/- 2) h*. The channel width and minimum length are
+    not checked against a source I could read (DERIVATIONS.md, section 9 says which are).
     """
     lam = cell_size_mm
     h_lo, h_nom, h_hi = 7 * lam, 12 * lam, 17 * lam
