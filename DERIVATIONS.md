@@ -214,6 +214,8 @@ The numerator is the latent heat of the vapor that has to form to fill the space
 
 **Coupling to the motor.** The injector flow depends on $P_c$, and $P_c$ on the total flow, so every step solves $P_c = (\dot m_{ox}(P_c) + \dot m_f)\,\eta_{c^*}\, c^*/A_t$ with a root finder (`tank.simulate_blowdown`).
 
+**Why the tank can hold O/F steady, and when it can't.** From section 5, $O/F \propto \dot m_{ox}^{\,1-n} A^{\,n-1/2}$ for a round port. The tank's falling flow lowers O/F for any $n < 1$, while the opening port raises it only if $n > 1/2$. With the law used here ($n = 0.555$) the two partly cancel. With the laws the same McGill report fitted to its own hot fires (arXiv:2302.06725, Table 4.4: $n = 0.355$ and $0.156$), both lower O/F and the tank-fed drift is larger than at constant flow. The figure script runs both as a sensitivity check.
+
 **Liquid nitrous in the Cantera table.** CoolProp and the NASA tables put the zero of enthalpy in different places. The liquid's NASA-scale enthalpy is the NASA value for N₂O gas at 298.15 K plus CoolProp's difference between saturated liquid at the tank temperature and the near-ideal gas at 298.15 K and 100 Pa. At 20 °C that's 255 kJ/kg below the gas, mostly the heat of vaporization (170 kJ/kg).
 
 ---

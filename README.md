@@ -49,13 +49,13 @@ Most amateur and university hybrids don't get a steady oxidizer flow. They run o
 
 I modeled the tank as liquid and vapor in equilibrium at one temperature, tracked its mass and energy with CoolProp's equation of state for nitrous, and fed a paraffin grain through an injector. Over a 6.65 s burn the tank drops from 20 °C to 0.4 °C, and its pressure from 5.05 to 3.15 MPa. The oxidizer flow falls 23% and the thrust 27%.
 
-What surprised me was the O/F. With a constant oxidizer flow, the opening port pushes O/F up 9% over the burn. Fed from the tank, the falling flow cancels most of that, and O/F stays within 5%. The tank throttles itself down, which is what I had to compute a throttle schedule for in the GOX case. It helps that this regression law's $n = 0.555$ is close to 1/2, where the port barely moves O/F at all.
+What surprised me was the O/F. With a constant oxidizer flow, the opening port pushes O/F up 9% over the burn. Fed from the tank, the falling flow cancels most of that, and O/F stays within 5%. The tank throttles itself down, which is what I had to compute a throttle schedule for in the GOX case. But that only works because this regression law's $n = 0.555$ is above 1/2. Since O/F goes like $\dot m_{ox}^{1-n} A^{n-1/2}$, the opening port pushes O/F up only when $n > 1/2$, while a falling oxidizer flow always pulls it down. Below 1/2 both push the same way.
 
 ![Nitrous blowdown](docs/figures/n2o_blowdown.png)
 
 Two practical things fell out of it. When the liquid runs out, 0.43 kg of the 3.5 kg load is still in the tank as vapor, which my model doesn't burn. And the injector model matters. At 2 MPa chamber pressure, Dyer's model gives 71% of the flow the simple liquid-only (SPI) formula does, because the nitrous starts boiling on its way through the holes. Holes sized with the liquid-only formula would leave the motor about 30% short on oxidizer.
 
-The paraffin/N₂O regression law comes from a McGill Rocket Team report ([arXiv:2302.06725](https://arxiv.org/abs/2302.06725)), which takes it from a 2013 thesis, and that report's own two hot fires fit very different numbers. So I'd treat the O/F values as a starting point.
+The paraffin/N₂O regression law comes from a McGill Rocket Team report ([arXiv:2302.06725](https://arxiv.org/abs/2302.06725)), which takes it from a 2013 thesis, and that report's own two hot fires fit very different numbers, with $n = 0.355$ and $0.156$. With those, the tank-fed O/F swings 29% and 47% over the burn, against 12% and 25% at constant flow, so the tank makes the drift worse instead of better. Those fits also burn much less fuel (O/F 12 to 23), so what carries over is the direction, not the numbers. I'd treat the O/F values, and even which way the tank pushes them, as a starting point until there's a regression law measured for the actual fuel.
 
 ## Detonation, briefly
 

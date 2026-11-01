@@ -409,6 +409,27 @@ def nitrous_tank(results):
         "best_of_2MPa": float(n2o_table.of[int(np.argmax(n2o_table.cstar[:, 2]))]),
     }
 
+    # The self-throttling depends on n > 1/2. The report this law comes from fitted its own two hot fires
+    # with much smaller n (arXiv:2302.06725, Table 4.4), so run those too. They make much less fuel, so the
+    # table has to reach leaner O/F; only the direction of the drift matters here.
+    lean_table = thermo.build_table(tank.liquid_n2o(T_tank0), thermo.PARAFFIN, np.linspace(2.0, 30.0, 15),
+                                    np.array([0.5e6, 1e6, 2e6, 3e6, 4e6]), area_ratio=5.0)
+    hot_fire_fits = {"HF4": hybrid.RegressionLaw("paraffin / N2O, McGill HF4 fit", 2e-4, 0.355, 788.9,
+                                                 "arXiv:2302.06725, Table 4.4"),
+                     "HF5": hybrid.RegressionLaw("paraffin / N2O, McGill HF5 fit", 5e-4, 0.156, 788.9,
+                                                 "arXiv:2302.06725, Table 4.4")}
+    sens = {}
+    for name, law_hf in hot_fire_fits.items():
+        bd_hf = tank.simulate_blowdown(n2o_port, L_n2o, law_hf, lean_table, tank.N2OTank(0.005, 3.5, T_tank0), inj,
+                                       throat_n2o)
+        cf_hf = hybrid.simulate(n2o_port, L_n2o, law_hf, lean_table, float(bd_hf.mdot_ox[0]), throat_n2o,
+                                burn_time=float(bd_hf.t[-1]) + 0.01)
+        sens[name] = {"a": law_hf.a, "n": law_hf.n, "of": [round(float(bd_hf.of[0]), 2), round(float(bd_hf.of[-1]), 2)],
+                      "of_spread": round(bd_hf.of_spread(), 3),
+                      "of_constant_flow": [round(float(cf_hf.of[0]), 2), round(float(cf_hf.of[-1]), 2)],
+                      "of_spread_constant_flow": round(cf_hf.of_spread(), 3)}
+    results["n2o_blowdown"]["hot_fire_fit_sensitivity"] = sens
+
 
 def detonation(results):
     """CJ detonation speeds, ideal cycle efficiencies and first-cut RDE sizing."""

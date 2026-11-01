@@ -308,7 +308,37 @@
     "oxidizer_used_kg": 3.07,
     "vapor_left_kg": 0.43,
     "dyer_over_spi_at_2MPa": 0.71,
-    "best_of_2MPa": 7.0
+    "best_of_2MPa": 7.0,
+    "hot_fire_fit_sensitivity": {
+      "HF4": {
+        "a": 0.0002,
+        "n": 0.355,
+        "of": [
+          16.15,
+          12.1
+        ],
+        "of_spread": 0.288,
+        "of_constant_flow": [
+          16.15,
+          14.29
+        ],
+        "of_spread_constant_flow": 0.124
+      },
+      "HF5": {
+        "a": 0.0005,
+        "n": 0.156,
+        "of": [
+          22.92,
+          14.36
+        ],
+        "of_spread": 0.467,
+        "of_constant_flow": [
+          22.92,
+          17.86
+        ],
+        "of_spread_constant_flow": 0.252
+      }
+    }
   },
   "cj": {
     "H2-O2": {
