@@ -25,6 +25,8 @@ from hml.nozzle import bell_contour, export_nozzle_cad
 ROOT = Path(__file__).resolve().parents[1]
 FIG = ROOT / "docs" / "figures"
 RESULTS = ROOT / "docs" / "results.json"
+# NASA CEA runs of the same propellants, written by tools/cea_reference.py (also used by the tests).
+CEA = json.loads((ROOT / "tests" / "data" / "cea_reference.json").read_text())
 plt.rcParams.update({"figure.dpi": 140, "axes.grid": True, "grid.alpha": 0.3, "axes.spines.top": False,
                      "axes.spines.right": False, "font.size": 10})
 
@@ -187,6 +189,8 @@ def aluminized(results):
     fig, axes = plt.subplots(1, 2, figsize=(11, 3.9))
     axes[0].plot(al_fracs * 100, [r.isp for r in multi], "o-", label="with condensed Al2O3 (and freezing)")
     axes[0].plot(al_fracs * 100, [r.isp for r in gas_only], "s--", label="gas-phase products only")
+    axes[0].plot([r["al_pct"] for r in CEA["aluminized_1000psia_eps10"]],
+                 [r["isp_sl_s"] for r in CEA["aluminized_1000psia_eps10"]], "k+", ms=9, label="NASA CEA, same propellant")
     axes[0].set_xlabel("aluminum (% by mass)")
     axes[0].set_ylabel("Isp at sea level (s)")
     axes[0].set_title("1000 psia, area ratio 10")
@@ -212,7 +216,16 @@ def aluminized(results):
         "condensed_fraction": [round(r.condensed_fraction, 3) for r in multi],
         "best_al_pct": round(float(al_fracs[best]) * 100), "best_isp": round(multi[best].isp, 1),
         "best_al_pct_gas_only": round(float(al_fracs[best_gas]) * 100), "best_isp_gas_only": round(gas_only[best_gas].isp, 1),
+        "isp_nasa_cea": [round(r["isp_sl_s"], 1) for r in CEA["aluminized_1000psia_eps10"]],
+        "tc_nasa_cea": [round(r["Tc_K"]) for r in CEA["aluminized_1000psia_eps10"]],
     }
+    # CEA Example 5 itself at 500 psia: the CEA2 reference temperature, and what the model gets with and
+    # without the condensed phase.
+    ex5 = [(thermo.AP, 72.06), (thermo.CEA_BINDER, 18.58), (thermo.ALUMINUM, 9.0), (thermo.MGO, 0.2),
+           (thermo.WATER_LIQUID, 0.16)]
+    results["aluminized"]["cea_example5_500psia_K"] = {
+        "cea2_reference": 2722.99, "condensed": round(thermo.Equilibrium(ex5).hp(500 * 6894.757).T, 1),
+        "gas_only": round(thermo.equilibrate_hp(ex5, 500 * 6894.757).T, 1)}
 
 
 def hybrid_gox(results):
@@ -441,13 +454,12 @@ def detonation(results):
         "C2H4-air": thermo.bipropellant(thermo.AIR, thermo.C2H4, 3 * 4.76 * 28.851 / 28.054),
         "CH4-O2": thermo.bipropellant(thermo.O2, thermo.CH4, 64 / 16.043),
     }
-    literature = {"H2-O2": 2836, "H2-air": 1968, "C2H4-air": 1825}  # 1 atm, 298 K, stoichiometric
     results["cj"] = {}
     cj_h2air = None
     for name, mix in mixtures.items():
         cj = rde.cj_state(mix)
         results["cj"][name] = {"D_m_s": round(cj.D, 1), "T_K": round(cj.T2), "P_ratio": round(cj.P2 / cj.P1, 2),
-                               "literature_D": literature.get(name)}
+                               "nasa_cea_D": round(CEA["cj_1atm"][name]["D_m_s"], 1)}
         if name == "H2-air":
             cj_h2air = cj
 

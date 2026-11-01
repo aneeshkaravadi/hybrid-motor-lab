@@ -59,7 +59,7 @@ The paraffin/N₂O regression law comes from a McGill Rocket Team report ([arXiv
 
 ## Detonation, briefly
 
-The detonation speeds from my CJ solver land within 1 m/s of published values for H₂/O₂, H₂/air and C₂H₄/air, which was the moment I started trusting it. The interesting part is the cycle comparison. For H₂/air with no compressor at all, an ideal detonation cycle still gets about 25% thermal efficiency while a normal constant-pressure (Brayton) cycle gets zero, because the detonation does its own compression. That's the argument for RDEs in one plot.
+The detonation speeds from my CJ solver land within 1 m/s of NASA CEA's for H₂/O₂, H₂/air, C₂H₄/air and CH₄/O₂. The interesting part is the cycle comparison. For H₂/air with no compressor at all, an ideal detonation cycle still gets about 25% thermal efficiency while a normal constant-pressure (Brayton) cycle gets zero, because the detonation does its own compression. That's the argument for RDEs in one plot.
 
 <img src="docs/figures/cycle_efficiency.png" width="60%">
 
@@ -83,9 +83,9 @@ There's a catch I missed at first. My model uses one pressure for the whole cham
 
 ### Aluminum
 
-Most high-performance composite propellants are 15 to 20% aluminum powder, and my thermochemistry couldn't handle it. Aluminum burns to Al₂O₃, which is a liquid at chamber temperature, and my equilibrium only had gases. I added condensed products the way NASA's CEA does. Every solid or liquid that can form from the elements present sits next to the gas as its own phase, only within its own temperature range, and takes up no volume. Then I checked it against CEA's own Example 5, an aluminized AP propellant. My chamber temperatures land within 5 K of CEA's at all five pressures, and the product mole fractions within 1%.
+Most high-performance composite propellants are 15 to 20% aluminum powder, and my thermochemistry couldn't handle it. Aluminum burns to Al₂O₃, which is a liquid at chamber temperature, and my equilibrium only had gases. I added condensed products the way NASA's CEA does. Every solid or liquid that can form from the elements present sits next to the gas as its own phase, only within its own temperature range, and takes up no volume. Then I checked it against CEA's own Example 5, an aluminized AP propellant. My chamber temperatures land within 5 K of CEA's at all five pressures, and the product mole fractions within 1%. For the whole rocket problem, throat, exit and freezing included, I ran NASA's open-source CEA on the same sweep shown below, and my sea-level Isp lands within 0.2 s of it at every aluminum content.
 
-Leaving the liquid out is a big mistake. Without it, the aluminum has nowhere to go but gaseous chlorides, and Example 5 comes out 500 K too cold. Sweeping the aluminum content, the full model peaks at 18% (263.6 s at sea level, 16% better than no aluminum), close to the 15 to 20% real motors use. The gas-only model says the opposite: it peaks at 6% and loses performance after that. Both assume the alumina droplets keep up with the gas, which real ones don't quite, so a real motor would lose a few percent of that to two-phase flow.
+Leaving the liquid out is a big mistake. Without it, the aluminum has nowhere to go but gaseous chlorides, and Example 5 comes out 500 K too cold. Sweeping the aluminum content, the full model peaks at 18% (263.6 s at sea level, against CEA's 263.7, and 16% better than no aluminum), close to the 15 to 20% real motors use. The gas-only model says the opposite: it peaks at 6% and loses performance after that. Both assume the alumina droplets keep up with the gas, which real ones don't quite, so a real motor would lose a few percent of that to two-phase flow.
 
 ![Aluminized Isp](docs/figures/aluminized_isp.png)
 

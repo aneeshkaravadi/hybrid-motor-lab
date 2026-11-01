@@ -187,7 +187,34 @@
     "best_al_pct": 18,
     "best_isp": 263.6,
     "best_al_pct_gas_only": 6,
-    "best_isp_gas_only": 230.9
+    "best_isp_gas_only": 230.9,
+    "isp_nasa_cea": [
+      227.4,
+      235.5,
+      243.0,
+      249.7,
+      255.5,
+      260.3,
+      263.7,
+      262.9,
+      258.4
+    ],
+    "tc_nasa_cea": [
+      2235,
+      2411,
+      2582,
+      2746,
+      2898,
+      3030,
+      3120,
+      3148,
+      3126
+    ],
+    "cea_example5_500psia_K": {
+      "cea2_reference": 2722.99,
+      "condensed": 2718.7,
+      "gas_only": 2223.2
+    }
   },
   "gox_paraffin_best_of_2MPa": {
     "of": 2.2,
@@ -353,25 +380,25 @@
       "D_m_s": 2836.9,
       "T_K": 3679,
       "P_ratio": 18.79,
-      "literature_D": 2836
+      "nasa_cea_D": 2836.3
     },
     "H2-air": {
       "D_m_s": 1969.3,
       "T_K": 2945,
       "P_ratio": 15.58,
-      "literature_D": 1968
+      "nasa_cea_D": 1968.7
     },
     "C2H4-air": {
       "D_m_s": 1824.0,
       "T_K": 2924,
       "P_ratio": 18.35,
-      "literature_D": 1825
+      "nasa_cea_D": 1823.9
     },
     "CH4-O2": {
       "D_m_s": 2390.5,
       "T_K": 3724,
       "P_ratio": 29.33,
-      "literature_D": null
+      "nasa_cea_D": 2390.2
     }
   },
   "cycle_at_pi": {
