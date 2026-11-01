@@ -55,8 +55,12 @@ class PortGeometry:
         X, Y = self._coords()
         return X**2 + Y**2 <= (self.diameter / 2) ** 2
 
-    def distance(self) -> np.ndarray:
-        """Signed distance (m) from each cell center to the port surface; negative inside the port."""
+    def distance(self, workers: int = 1) -> np.ndarray:
+        """Signed distance (m) from each cell center to the port surface; negative inside the port.
+
+        ``workers`` is passed to the KD-tree query. It stays at one core by default: a 401 x 401 port
+        takes about a second that way, and the answer doesn't depend on it.
+        """
         if "d" in self._cache:
             return self._cache["d"]
         cov = self.coverage if self.coverage is not None else self.port_mask.astype(float)
@@ -69,7 +73,7 @@ class PortGeometry:
                 pts.append(p0 + s * (np.arange(k)[:, None] / k))
         pts = np.vstack(pts)  # (x = column j, y = row i) in cell units
         jj, ii = np.meshgrid(np.arange(self.n), np.arange(self.n))
-        dist, _ = cKDTree(pts).query(np.column_stack([jj.ravel(), ii.ravel()]), workers=-1)
+        dist, _ = cKDTree(pts).query(np.column_stack([jj.ravel(), ii.ravel()]), workers=workers)
         d = dist.reshape(self.n, self.n) * self.dx
         d = np.where(cov >= 0.5, -d, d)
         self._cache["d"] = d

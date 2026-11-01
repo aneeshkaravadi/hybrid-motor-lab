@@ -125,6 +125,20 @@ def test_bates_burn_area_matches_closed_form():
         assert seg.burn_area(x, c)[0] == pytest.approx(grain.bates_area_exact(D, d, L, x), rel=0.01)
 
 
+def test_distance_query_runs_on_one_core_by_default(monkeypatch):
+    """The KD-tree query used every core once, which overheats a laptop over a full figure run."""
+    seen = []
+
+    class Spy(grain.cKDTree):
+        def query(self, *args, **kwargs):
+            seen.append(kwargs.get("workers"))
+            return super().query(*args, **kwargs)
+
+    monkeypatch.setattr(grain, "cKDTree", Spy)
+    grain.tubular(0.05, 0.02, n=41).distance()
+    assert seen == [1]
+
+
 def test_star_web_is_distance_from_valley_region_to_casing():
     s = grain.star(0.075, 6, 0.025, 0.012)
     assert s.port_mask.any() and s.web() > (0.075 / 2 - 0.025)
