@@ -1,20 +1,47 @@
 """Checks against closed-form answers and published reference values."""
+import json
+from pathlib import Path
+
 import numpy as np
 import pytest
 
 from hml import grain, hybrid, rde, solid, thermo
 from hml.nozzle import bell_contour, exit_mach, thrust_coefficient
 
+# NASA CEA runs of the same reactants, written by tools/cea_reference.py (CEA itself isn't needed here).
+CEA = json.loads((Path(__file__).parent / "data" / "cea_reference.json").read_text())
+MIXES = {"H2-O2": (thermo.O2, thermo.H2), "CH4-air": (thermo.AIR, thermo.CH4), "CH4-O2": (thermo.O2, thermo.CH4),
+         "H2-air": (thermo.AIR, thermo.H2), "C2H4-air": (thermo.AIR, thermo.C2H4)}
+
 
 # ---------------------------------------------------------------- thermochemistry
-@pytest.mark.parametrize("ox, fuel, of, expected_K", [
-    (thermo.O2, thermo.H2, 32 / 4.032, 3080),                 # stoichiometric H2/O2, 1 atm
-    (thermo.AIR, thermo.CH4, 2 * 4.76 * 28.851 / 16.043, 2226),  # stoichiometric CH4/air
-    (thermo.O2, thermo.CH4, 64 / 16.043, 3050),               # stoichiometric CH4/O2
-])
-def test_adiabatic_flame_temperature(ox, fuel, of, expected_K):
-    gas = thermo.equilibrate_hp(thermo.bipropellant(ox, fuel, of), 101325.0)
-    assert gas.T == pytest.approx(expected_K, abs=25)
+@pytest.mark.parametrize("name", list(CEA["hp_flames_1atm"]))
+def test_adiabatic_flame_temperature_matches_nasa_cea(name):
+    """Stoichiometric, 1 atm, reactants at 298.15 K."""
+    ref = CEA["hp_flames_1atm"][name]
+    gas = thermo.equilibrate_hp(thermo.bipropellant(*MIXES[name], ref["of"]), 101325.0)
+    assert gas.T == pytest.approx(ref["T_K"], abs=5.0)
+
+
+def test_paraffin_gox_table_matches_nasa_cea():
+    """The hybrid performance table's range: 0.5 to 5 MPa, area ratio 5, O/F 0.7 to 4.
+
+    Where CEA forms no condensed products anywhere in the nozzle, c* and vacuum C_F agree within 0.1%.
+    At O/F 1.2 graphite starts to condense in the nozzle, which the gas-only model leaves out, so C_F
+    comes out low there. At O/F 1.0 and below graphite forms in the chamber too, and the model runs hot.
+    """
+    for ref in CEA["paraffin_gox_eps5"]:
+        r = thermo.rocket(thermo.bipropellant(thermo.O2, thermo.PARAFFIN, ref["of"]), ref["pc_MPa"] * 1e6, 5.0)
+        point = (ref["of"], ref["pc_MPa"])
+        if ref["condensed_exit"] == 0:
+            assert r.chamber.T == pytest.approx(ref["Tc_K"], abs=5.0), point
+            assert r.cstar == pytest.approx(ref["cstar"], rel=1e-3), point
+            assert r.cf_vac == pytest.approx(ref["cf_vac"], rel=1e-3), point
+        elif ref["condensed_chamber"] == 0:
+            assert r.cstar == pytest.approx(ref["cstar"], rel=1e-3), point
+            assert r.cf_vac < ref["cf_vac"], point
+        else:
+            assert r.chamber.T > ref["Tc_K"] + 50, point
 
 
 @pytest.mark.parametrize("ox, ox_wt, T_cea, mw_cea, cstar_cea", [
@@ -22,7 +49,8 @@ def test_adiabatic_flame_temperature(ox, fuel, of, expected_K):
     (thermo.O2, 48.5 * thermo.O2.molar_mass / ((32 * 12.011 + 66 * 1.008) / 1000), 3791.06, 25.292, 1759.0),  # 48.5 mol O2 per mol
 ])
 def test_paraffin_combustion_matches_nasa_cea(ox, ox_wt, T_cea, mw_cea, cstar_cea):
-    """NASA CEA2 runs at 100 bar posted with Stanford's AA283 course resources (paraffinN2O.out, paraffin.out).
+    """NASA CEA2 runs at 100 bar posted with Stanford's AA283 course resources, paraffinN2O.out and paraffin.out at
+    https://web.stanford.edu/~cantwell/AA283_Course_Material/AA283_Resources/CEAforPowerPCMac/CEAexec/
 
     Their paraffin is C32H66 at -698.52 kJ/mol. CEA ran a finite-area combustor (Ac/At = 3), which
     barely moves c*; the chamber temperature and molar mass are the plain HP equilibrium either way.
@@ -51,7 +79,9 @@ def test_paraffin_enthalpy_sensitivity_is_small():
         assert abs(c - base) / base < 0.01
 
 
-# NASA CEA Example 5 (RP-1311 Part II): an aluminized AP composite, HP equilibrium.
+# NASA CEA Example 5 (RP-1311 Part II): an aluminized AP composite, HP equilibrium. The numbers are from the
+# CEA2 (May 2004) reference output in NASA's repository, test/main_interface/reference_output/example5.out at
+# https://github.com/nasa/cea, which differ slightly from the table printed in RP-1311.
 CEA_EX5 = [(thermo.AP, 72.06), (thermo.CEA_BINDER, 18.58), (thermo.ALUMINUM, 9.0), (thermo.MGO, 0.2),
            (thermo.WATER_LIQUID, 0.16)]
 CEA_EX5_T = {500: 2722.99, 250: 2706.53, 125: 2686.16, 50: 2653.00, 5: 2540.82}  # psia: K
@@ -72,6 +102,19 @@ def test_condensed_equilibrium_matches_cea_example_5():
     assert thermo.equilibrate_hp(CEA_EX5, 500 * 6894.757).T < CEA_EX5_T[500] - 400
 
 
+@pytest.mark.parametrize("al_pct", [9, 18])
+def test_aluminized_rocket_matches_nasa_cea(al_pct):
+    """AP and Example 5's binder plus aluminum, 1000 psia, area ratio 10: the README's aluminum sweep."""
+    ref = next(r for r in CEA["aluminized_1000psia_eps10"] if r["al_pct"] == al_pct)
+    al = al_pct / 100
+    mix = [(thermo.AP, (1 - al) * 72.06 / 90.64), (thermo.CEA_BINDER, (1 - al) * 18.58 / 90.64), (thermo.ALUMINUM, al)]
+    r = thermo.rocket_multiphase(mix, 1000 * 6894.757, 10.0, 101325.0)
+    assert r.isp == pytest.approx(ref["isp_sl_s"], abs=0.3)
+    assert r.chamber.T == pytest.approx(ref["Tc_K"], abs=15.0)
+    assert r.cstar == pytest.approx(ref["cstar"], rel=3e-3)
+    assert r.condensed_fraction == pytest.approx(ref["condensed_chamber"], abs=0.01)
+
+
 def test_multiphase_rocket_is_the_gas_rocket_when_nothing_condenses():
     mix = [(thermo.AP, 72.06), (thermo.CEA_BINDER, 18.58)]
     gas = thermo.rocket(mix, 6.9e6, 10.0, 101325.0)
@@ -82,13 +125,14 @@ def test_multiphase_rocket_is_the_gas_rocket_when_nothing_condenses():
 
 
 # ---------------------------------------------------------------- detonation
-@pytest.mark.parametrize("name, mix, D_lit", [
-    ("H2-O2", thermo.bipropellant(thermo.O2, thermo.H2, 32 / 4.032), 2836),
-    ("H2-air", thermo.bipropellant(thermo.AIR, thermo.H2, 0.5 * 4.76 * 28.851 / 2.016), 1968),
-    ("C2H4-air", thermo.bipropellant(thermo.AIR, thermo.C2H4, 3 * 4.76 * 28.851 / 28.054), 1825),
-])
-def test_cj_speed_matches_literature(name, mix, D_lit):
-    assert rde.cj_state(mix).D == pytest.approx(D_lit, rel=0.005)
+@pytest.mark.parametrize("name", list(CEA["cj_1atm"]))
+def test_cj_state_matches_nasa_cea(name):
+    """Stoichiometric, 298.15 K and 1 atm, against CEA's detonation problem."""
+    ref = CEA["cj_1atm"][name]
+    cj = rde.cj_state(thermo.bipropellant(*MIXES[name], ref["of"]))
+    assert cj.D == pytest.approx(ref["D_m_s"], abs=2.0)
+    assert cj.T2 == pytest.approx(ref["T_K"], abs=5.0)
+    assert cj.P2 / cj.P1 == pytest.approx(ref["P_ratio"], rel=2e-3)
 
 
 def test_one_gamma_round_trip_and_cycle_ordering():

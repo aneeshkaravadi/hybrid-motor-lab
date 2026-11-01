@@ -14,7 +14,11 @@ where $y_i$ are mass fractions and each $h_i$ includes its heat of formation. Am
 
 **Implementation detail.** Cantera needs a starting composition with the correct element ratios. The code seeds the gas with free atoms (C, H, O, N) in the exact proportions, equilibrates at 3000 K so the state is physical, then imposes the reactant enthalpy and solves the HP equilibrium.
 
-**Check:** stoichiometric H₂/O₂ at 1 atm gives 3077 K, CH₄/air 2225 K and CH₄/O₂ 3052 K. Textbook values are about 3080, 2226 and 3050 K (`tests/test_physics.py`). For the hybrid propellants, NASA CEA runs of paraffin with N₂O (O/F 7) and with O₂ (stoichiometric) at 100 bar give chamber temperatures of 3421 and 3791 K. The model gets 3423 and 3793 K, molar masses within 0.03% and c* within 0.04% (`test_paraffin_combustion_matches_nasa_cea`).
+**Check:** stoichiometric H₂/O₂ at 1 atm gives 3077 K, CH₄/air 2225 K and CH₄/O₂ 3052 K. NASA CEA, run on the same reactants by `tools/cea_reference.py`, gives 3074.5, 2224.0 and 3050.1 K (`test_adiabatic_flame_temperature_matches_nasa_cea`, tolerance 5 K). For the hybrid propellants, NASA CEA runs of paraffin with N₂O (O/F 7) and with O₂ (stoichiometric) at 100 bar, posted with Stanford's AA283 course files, give chamber temperatures of 3421 and 3791 K. The model gets 3423 and 3793 K, molar masses within 0.03% and c* within 0.04% (`test_paraffin_combustion_matches_nasa_cea`).
+
+Cantera's NASA data (McBride, Gordon & Reno, NASA TM-4513, 1993) and CEA's own database come from the same NASA Glenn work, so these comparisons mostly check the equilibrium, enthalpy and nozzle calculations rather than the property data.
+
+**The hybrid table's range.** The GOX/paraffin table the hybrid simulations read spans 0.5 to 5 MPa and O/F 1 to 4. Against CEA over that range (`test_paraffin_gox_table_matches_nasa_cea`), chamber temperatures agree within 3.4 K, and c* and vacuum C_F within 0.04% wherever CEA forms no condensed products. On the fuel-rich edge it stops working. At O/F 1.2, CEA has 3 to 4% of the exhaust condensing as graphite by the nozzle exit, and the model's C_F comes out 0.24 to 0.26% low. At O/F 1.0 and below, graphite forms in the chamber too: at 2 MPa it's 4.8% of the mass at O/F 1.0 and 19% at 0.7. There the gas-only model runs 73 to 139 K hot and its C_F is 0.9 to 1.5% low. Its c* happens to stay within 0.3% down to O/F 0.8, and is 1.4% low at 0.7.
 
 ---
 
@@ -62,7 +66,7 @@ Aluminum burns to Al₂O₃, which is liquid in the chamber and freezes in the n
 
 **Throat.** With condensed products in equilibrium, the flow chokes where the mass flux $\rho v$ peaks, with $\rho$ the mass per gas volume. That is where the velocity equals the mixture's equilibrium sound speed. The code maximizes $\rho v$ along the isentrope directly.
 
-**Checks:** NASA's CEA Example 5 (RP-1311 Part II) is an aluminized AP composite with 9% Al. The model's HP temperatures are within 5 K of CEA's at all five pressures from 500 to 5 psia, and the product mole fractions (Al₂O₃(L), HCl, H₂, CO, N₂, H₂O, CO₂) are within 1%. With no aluminum, nothing condenses and `rocket_multiphase` matches the gas-only `rocket` to $10^{-4}$ in $c^*$ and $I_{sp}$, even though the two find the throat differently (`tests/test_physics.py`).
+**Checks:** NASA's CEA Example 5 (RP-1311 Part II) is an aluminized AP composite with 9% Al. Against the CEA2 reference output for it (`example5.out` in [NASA's CEA repository](https://github.com/nasa/cea), which differs slightly from the table printed in RP-1311), the model's HP temperatures are within 5 K at all five pressures from 500 to 5 psia, and the product mole fractions (Al₂O₃(L), HCl, H₂, CO, N₂, H₂O, CO₂) are within 1%. For the full rocket problem with throat, exit and freezing, CEA runs of the README's aluminum sweep (1000 psia, area ratio 10) give sea-level $I_{sp}$ of 249.67 s at 9% Al and 263.74 s at 18%. The model gets 249.68 and 263.63 s, with chamber temperatures 5 and 9 K low and c* within 0.22% (`test_aluminized_rocket_matches_nasa_cea`). With no aluminum, nothing condenses and `rocket_multiphase` matches the gas-only `rocket` to $10^{-4}$ in $c^*$ and $I_{sp}$, even though the two find the throat differently (`tests/test_physics.py`).
 
 ---
 
@@ -220,7 +224,7 @@ $$u_2 = a_{2,\text{eq}}$$
 
 (the products leave at exactly their equilibrium sound speed). The code solves momentum and energy for $(T_2, P_2)$ with that condition and full equilibrium chemistry.
 
-**Check:** stoichiometric H₂/O₂ 2837 m/s (literature 2836), H₂/air 1969 (1968), C₂H₄/air 1824 (1825), all at 1 atm and 298 K.
+**Check:** against NASA CEA's detonation problem on the same mixtures at 1 atm and 298 K (`test_cj_state_matches_nasa_cea`): H₂/O₂ 2836.9 m/s (CEA 2836.3), H₂/air 1969.3 (1968.7), C₂H₄/air 1824.0 (1823.9), CH₄/O₂ 2390.5 (2390.2). CJ temperatures agree within 3 K and pressure ratios within 0.07%. These are both equilibrium calculations, so they check the solver rather than measured detonation speeds.
 
 ---
 
@@ -284,5 +288,5 @@ The Bézier control point $Q$ is where the tangent lines at $N$ (slope $\tan\the
 
 - **Ballistics:** ignition and tail-off transients, two-phase flow losses, nozzle erosion, and heat loss to the walls. Erosive burning is an empirical correlation with an estimated gas viscosity. End faces burn at the pressure-only rate, and the pressure is taken as uniform along the port, which holds unless the port nears choking (flagged).
 - **Hybrids:** `simulate_axial` resolves the flux along the port, but its total-flux coefficient is matched to the averaged law at ignition rather than fit to data. The nitrous tank is adiabatic and always in equilibrium. Real tanks lag behind equilibrium, and the walls give heat back to the cooling liquid. The burn also stops when the liquid runs out instead of burning the vapor left behind.
-- **Thermochemistry:** condensed products stay in equilibrium with the gas, and the droplets are assumed to keep up with it in speed and temperature, so aluminized $I_{sp}$ is an upper bound. Real motors lose a few percent to particle lag. The paraffin heat of formation is uncertain, but a test shows it moves c* by less than 1%.
+- **Thermochemistry:** the hybrid tables are gas-only, so on the fuel-rich side (O/F 1.2 and below for GOX/paraffin) they miss the graphite that CEA says condenses (section 1). `PerformanceTable.lookup` also clamps O/F and pressure to the table's edges without saying so: the shaped-port hybrids start below O/F 1.0, so their first second or so is read at O/F 1.0. The nitrous table is built for liquid N₂O at 20 °C, while the tank cools to about 0 °C during the burn. Condensed products stay in equilibrium with the gas, and the droplets are assumed to keep up with it in speed and temperature, so aluminized $I_{sp}$ is an upper bound. Real motors lose a few percent to particle lag. The paraffin heat of formation is uncertain, but a test shows it moves c* by less than 1%.
 - **Detonation:** the one-gamma cycle analysis is an idealization. Real RDEs run 10–20% below CJ speed, and the sizing depends on an empirical cell size.
