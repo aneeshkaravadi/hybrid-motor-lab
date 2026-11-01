@@ -272,7 +272,7 @@ Rotating detonation waves need enough fresh mixture ahead of them. Bykovskii, Zh
 
 | Quantity | Correlation | Checked against |
 |---|---|---|
-| critical fill height | $h^* = (12 \pm 5)\,\lambda$ | Braun, Lu & Wilson, AIAA 2010-7039, quoting Bykovskii |
+| critical fill height | $h^* = (12 \pm 5)\,\lambda$ | Braun, Lu, Wilson & Camberos, AIAA 2010-7039, quoting Bykovskii |
 | min diameter | $\approx 40\,\lambda$ | same |
 | spacing between waves | $\ell = (7 \pm 2)\,h^*$ | Meng et al., [arXiv:2011.03187](https://arxiv.org/abs/2011.03187), who quote a range of 5 to 9 from Bykovskii |
 | min channel width | $\approx 0.2\,h^*$ | not checked |
