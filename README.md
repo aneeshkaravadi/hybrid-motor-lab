@@ -25,7 +25,7 @@ The math behind all of it is written out in [DERIVATIONS.md](DERIVATIONS.md).
 
 ## The result I didn't expect
 
-I assumed printed port shapes would let you hold a hybrid's O/F ratio steady through the burn, since that was the whole appeal. They don't, at least not for paraffin. Every star, finocyl and wagon wheel I tried front-loaded the fuel flow and made the O/F swing much worse than a plain tube (70 to 88% instead of 21%). They did give 3.5 to 5.4% more impulse, but only by burning 24 to 33% more fuel at a worse O/F (Isp of 226 to 233 s instead of 238.5). The star and the wagon wheel also end the 8 s burn within 1 mm of the casing, where the tube still has 9 mm of fuel left.
+I assumed printed port shapes would let you hold a hybrid's O/F ratio steady through the burn, since that was the whole appeal. They don't, at least not for paraffin. Every star, finocyl and wagon wheel I tried front-loaded the fuel flow and made the O/F swing much worse than a plain tube (70 to 88% instead of 21%). They did give 3.5 to 5.4% more impulse, but only by burning 24 to 33% more fuel at a worse O/F (Isp of 226 to 233 s instead of 238.5). The star and the wagon wheel also end the 8 s burn within about 1 mm of the casing, where the tube still has 9 mm of fuel left.
 
 ![O/F drift for four port shapes](docs/figures/hybrid_of_drift.png)
 
