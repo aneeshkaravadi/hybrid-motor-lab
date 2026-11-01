@@ -84,7 +84,7 @@ $$A_\text{port}(x) = \text{area}\{\,d \le x\,\} \cap \text{casing}, \qquad P(x) 
 2. Extract the boundary at coverage 0.5 with marching squares (sub-pixel accurate).
 3. Measure distances to that curve with a KD-tree.
 
-A circular port then matches $P = 2\pi(r_0 + x)$ to 0.1% mid-burn (`test_tubular_perimeter_matches_circle`).
+A circular port then matches the exact area $\pi(r_0 + x)^2$ within 0.1% all through the burn. The perimeter, being the slope of that area, is noisier: it averages 0.08% high, with step-to-step scatter of a few tenths of a percent and up to about 1% at the very first step (`test_tubular_perimeter_matches_circle` allows 1% away from the two ends). The web at which the flame first reaches the casing (`web_to_casing`) comes from the same sub-pixel boundary: within a quarter of a grid cell for a round core, and up to a cell short at a star's sharp tips, which the boundary rounds off.
 
 **Segment burning area.** With uninhibited ends, the core length shrinks as both end faces burn back: $L(x) = L_0 - 2x$. Each end face is a ring of area $A_\text{case} - A_\text{port}(x)$:
 

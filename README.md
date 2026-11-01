@@ -95,9 +95,9 @@ Fit a and n on one motor with examples/compare_static_fire.py, then predict a se
 (thrustcurve.org .eng file or club static-fire CSV in data/static_fires/). Show the overlay plot and the impulse error.
 -->
 
-## A nozzle that ends in hardware
+## A nozzle as a printable CAD file
 
-`nozzle.py` builds the bell contour and exports it with build123d as [`cad/bell_nozzle_e8.step`](cad/bell_nozzle_e8.step). I ran the exported mesh through a DfAM check for metal powder-bed printing ([report](docs/dfam_report.md)). Walls pass easily, and standing it on its flange cuts the support area from 18% to 2.5%.
+`nozzle.py` builds the bell contour and exports it with build123d as [`cad/bell_nozzle_e8.step`](cad/bell_nozzle_e8.step). I ran the exported mesh through a DfAM check for metal powder-bed printing ([report](docs/dfam_report.md)). Walls pass easily, and standing it on its flange cuts the support area from 18% to 2.5%. The 3 mm wall is a placeholder for a heat-sink test article, not a thermal design.
 
 <!-- TODO(Aneesh): screenshot of the STEP open in SolidWorks/Fusion, e.g.
 <img src="docs/photos/nozzle_in_solidworks.png" width="60%">
@@ -105,21 +105,31 @@ Fit a and n on one motor with examples/compare_static_fire.py, then predict a se
 
 ## Things I got wrong along the way
 
-- My first burn-back version used a plain pixel distance transform, and it overestimated the burning perimeter by about 10% early in the burn, because the flame front ends up being a bunch of tiny circles around boundary pixels. I switched to finding the boundary at sub-pixel accuracy and measuring distances to that, which got it to within 0.1% of the exact circle.
+- My first burn-back version used a plain pixel distance transform, and it overestimated the burning perimeter by about 10% early in the burn, because the flame front ends up being a bunch of tiny circles around boundary pixels. I switched to finding the boundary at sub-pixel accuracy and measuring distances to that, which got the port area within 0.1% of the exact circle all through the burn. The perimeter, which is the slope of that area, still scatters by a few tenths of a percent from step to step, and I had been calling that "within 0.1%" too.
 - The first nozzle STEP file was in meters while CAD programs assume millimeters, so it opened 1000 times too small, and the STL was 78 MB. Building the geometry in mm with spline walls fixed both (the STEP is now 69 KB).
 - I labeled one of my solid grain cases "near-neutral star" before actually looking at the curve. It isn't neutral at all, so it's now labeled for what it does.
 - My finocyl-plus-sustainer example had the sustainer grain, with its 10 mm core, at the nozzle end. The pressure-only model doesn't care about the order of the grains, but in that order all the boost grain's gas would have to squeeze through a port smaller than the nozzle throat, at more than twice the flux the throat itself can pass, so the port would choke. The erosive model flags that. With the sustainer at the head end it only carries its own gas, and the thrust curve in the plot doesn't change.
 - The exit-pressure solver crashed with a negative temperature because I let it search down to absurdly low pressures, so the bracket now scales with the area ratio.
+- I wrote that Mukunda and Paul fit their erosive-burning coefficient, 0.023, to about 450 data points. When I went back through the paper, the line through all the points is 0.018. They raised it to 0.023 to match measured motor pressure traces and say it sits toward the upper edge of the data. The README now gives the result as a range over both coefficients and the viscosity I guessed.
+- I reported the erosive pressure rise for a port only 1.4 times the throat area without checking how fast the gas was going. When I worked out the port Mach number from the flux the model already reported, it was about 0.49, enough for a 12% pressure difference between the two ends of a grain that my model treats as one pressure. The model now reports the Mach number and head-end pressure, and the README says that case is a first estimate.
+- I wrote that the nitrous tank "throttles itself down" as if that always happens. It only steadies O/F because the regression exponent I used is above 1/2. With the exponents from the same report's own hot fires, the tank makes the drift worse.
+- I compared flame temperatures and detonation speeds against "textbook" and "published" values without saying where they came from, and my aluminized Isp and most of the hybrid table had no check at all. All of those now come from NASA CEA runs of the same propellants, saved in the repo.
+- I said the printed hybrid ports gave 3 to 5% more impulse without saying why. It's because they burn 24 to 33% more fuel at a worse O/F, almost down to the casing.
+- I said the tests were "35 checks against known answers", but fewer than half of them compared against anything independent. The rest checked conservation or that two parts of my own code agree. The list below now says which is which.
+- My burn-back code asked for every CPU core in its distance search, which is a bad default on a laptop. It uses one core now, and the results don't change.
 
 ## Running it
 
 ```bash
 pip install -e ".[dev,cad]"
-pytest -q                          # 35 checks against known answers, about 15 seconds
-python examples/make_figures.py    # regenerates every figure and number above
+pytest -q                          # 42 tests, about a minute on one core
+python examples/make_figures.py    # every figure and number above, a few minutes on one core
+python examples/make_figures.py --only erosive tank   # or just some sections
 ```
 
-The tests compare against things I could look up independently: textbook flame temperatures, NASA CEA runs of paraffin with N₂O and O₂ and CEA's own aluminized-propellant example, published CJ speeds, the exact BATES burning area, isentropic flow tables, a published erosive-burning correlation, a mass balance on the solid motor, an ODE solve of the fuel flow along a hybrid port, and a second, independent formulation of the nitrous tank drain.
+The figure script writes the model results the README quotes to [`docs/results.json`](docs/results.json). The comparison with CEA's Example 5 lives in the tests, and the DfAM numbers come from an external tool (see the report).
+
+Twenty of the 42 tests compare against something independent of my code: NASA CEA runs of the same propellants (flame temperatures, the hybrid performance table from 0.5 to 5 MPa, the aluminized rocket problem, CEA's own Example 5, Stanford's paraffin runs and CJ detonations), the exact BATES burning area and port geometry, isentropic flow tables, an ODE solve of the fuel flow along a hybrid port, a dimensional solve of the port flow behind the erosive-burning Mach number, and a second formulation of the nitrous tank drain. The CEA numbers are saved in `tests/data/cea_reference.json` by `tools/cea_reference.py`, so the tests run offline. The other 22 check conservation (mass balances on the solid and hybrid motors), that two parts of the code agree, that a hand-typed correlation matches its source, or that results land in a sensible range.
 
 ## What's next
 
