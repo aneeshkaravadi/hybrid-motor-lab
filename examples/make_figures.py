@@ -71,7 +71,7 @@ def ports(results):
         ax.set_title(p.name)
         ax.set_xticks([]), ax.set_yticks([])
     for ax, p in zip(axes[1], ports):
-        x, A, P = p.curves(300)
+        x, _, P = p.curves(300)
         ax.plot(x * 1000, P * 1000, color="C3")
         ax.set_xlabel("web burned (mm)")
         ax.set_ylabel("burning perimeter (mm)")
